@@ -1,0 +1,26 @@
+{
+  "name": "promptmanager-electron",
+  "version": "1.0.0",
+  "description": "<<<<<<< HEAD # AI Prompt Manager",
+  "main": "index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agileandy/promptManager-Electron.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/agileandy/promptManager-Electron/issues"
+  },
+  "homepage": "https://github.com/agileandy/promptManager-Electron#readme",
+  "devDependencies": {
+    "electron": "^37.2.0"
+  }
+}
