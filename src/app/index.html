@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Prompt Manager</title>
+    <!-- Tailwind CSS CDN (for development) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    <style>
+        /* Custom CSS for dark mode fallback */
+        .dark {
+            color-scheme: dark;
+        }
+        .dark body {
+            background: linear-gradient(to bottom right, #111827, #1f2937, #111827);
+            color: #f9fafb;
+        }
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+    </style>
+    <link rel="stylesheet" href="./dist/output.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 font-sans min-h-screen">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white dark:bg-gray-800 p-4 shadow-2xl border-r border-gray-200 dark:border-gray-700">
+            <h1 class="text-2xl font-bold mb-6">AI Prompts</h1>
+            <nav>
+                <ul>
+                    <li class="mb-2"><a href="#" id="all-prompts-link" class="block p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 active">All Prompts</a></li>
+                    <li class="mb-2"><a href="#" id="untagged-prompts-link" class="block p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Untagged</a></li>
+                </ul>
+                
+                <!-- Tag Tree -->
+                <div class="mt-6">
+                    <h3 class="text-sm font-semibold mb-3 text-gray-600 dark:text-gray-400 uppercase tracking-wide">Tags</h3>
+                    <div id="tag-tree" class="text-sm">
+                        <!-- Tag tree will be dynamically inserted here -->
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6 relative">
+            <!-- Header with branding and theme toggle -->
+            <header class="flex justify-between items-center mb-6">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-2xl">📝</span>
+                        <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI Prompt Manager</h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button id="toggle-theme" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg px-3 py-2 transition-colors" title="Toggle Theme">
+                        <span class="text-lg">🌓</span>
+                    </button>
+                    <button id="help-btn" class="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-3 py-2 transition-colors" title="Help">
+                        <span class="text-lg">❓</span>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Controls Bar -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-4 mb-6 backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
+                <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                    <!-- Left side: Search and Sort -->
+                    <div class="flex flex-col sm:flex-row gap-3 flex-1">
+                        <input type="search" placeholder="Search prompts..." class="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                        <select id="sort-options" class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                            <option value="createdAt">📅 Created Date</option>
+                            <option value="title">🔤 Title</option>
+                            <option value="timesUsed">📊 Times Used</option>
+                            <option value="lastUsedAt">⏰ Last Used</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Right side: Action buttons -->
+                    <div class="flex gap-2">
+                        <button id="import-prompts" class="bg-green-500 hover:bg-green-600 text-white rounded-lg px-4 py-2 transition-colors flex items-center gap-2" title="Import Prompts">
+                            <span>📥</span> Import
+                        </button>
+                        <button id="export-prompts" class="bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg px-4 py-2 transition-colors flex items-center gap-2" title="Export Prompts">
+                            <span>📤</span> Export
+                        </button>
+                        <button id="new-prompt-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg px-4 py-2 transition-colors flex items-center gap-2">
+                            <span>➕</span> New Prompt
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prompt Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Prompt Tiles will be dynamically inserted here -->
+            </div>
+        </main>
+
+        <!-- New Prompt Modal -->
+
+        <!-- Help Modal -->
+        <div id="help-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl max-w-2xl max-h-96 overflow-y-auto">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">📝 AI Prompt Manager Help</h2>
+                <div class="text-gray-700 dark:text-gray-300 space-y-3">
+                    <p><strong>➕ Creating Prompts:</strong> Click "New Prompt" to create a new AI prompt with title, description, and text.</p>
+                    <p><strong>🔍 Search:</strong> Use the search bar to find prompts by title, description, or content.</p>
+                    <p><strong>📊 Sorting:</strong> Use the dropdown to sort by creation date, title, usage count, or last used date.</p>
+                    <p><strong>📋 Copy Prompts:</strong> Click the copy icon to copy prompt text to clipboard and track usage.</p>
+                    <p><strong>✏️ Edit Prompts:</strong> Click the edit icon to create a new version while preserving history.</p>
+                    <p><strong>📥 Import/Export:</strong> Use Import/Export buttons to backup or share your prompts as JSON files.</p>
+                    <p><strong>🌓 Theme Toggle:</strong> Switch between light and dark modes with the theme button.</p>
+                    <p><strong>📖 Version History:</strong> Click the history icon to view all versions of a prompt.</p>
+                </div>
+                <button id="close-help-btn" class="mt-6 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">Close</button>
+            </div>
+        </div>
+        <div id="new-prompt-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-2xl">
+                <h2 class="text-2xl font-bold mb-6">Create New Prompt</h2>
+                <form id="new-prompt-form">
+                    <div class="mb-4">
+                        <label for="prompt-title" class="block text-sm font-medium mb-1">Title</label>
+                        <input type="text" id="prompt-title" name="title" class="w-full p-2 border rounded bg-gray-200 dark:bg-gray-700" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="prompt-description" class="block text-sm font-medium mb-1">Short Description</label>
+                        <input type="text" id="prompt-description" name="description" class="w-full p-2 border rounded bg-gray-200 dark:bg-gray-700">
+                    </div>
+                    <div class="mb-4">
+                        <label for="prompt-text" class="block text-sm font-medium mb-1">Prompt Text</label>
+                        <textarea id="prompt-text" name="text" rows="10" class="w-full p-2 border rounded bg-gray-200 dark:bg-gray-700" required></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label for="prompt-tags" class="block text-sm font-medium mb-1">Tags</label>
+                        <div class="relative">
+                            <input type="text" id="prompt-tags" name="tags" placeholder="Add tags (use / for hierarchy, e.g., coding/javascript)" class="w-full p-2 border rounded bg-gray-200 dark:bg-gray-700">
+                            <div id="tag-suggestions" class="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md mt-1 max-h-32 overflow-y-auto hidden">
+                                <!-- Tag suggestions will appear here -->
+                            </div>
+                        </div>
+                        <div id="selected-tags" class="mt-2 flex flex-wrap gap-2">
+                            <!-- Selected tags will appear here -->
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Press Enter or comma to add a tag. Use "/" for hierarchical tags (e.g., "coding/javascript")</p>
+                    </div>
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" id="cancel-prompt-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">Cancel</button>
+                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Save Prompt</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- History Modal -->
+<div id="history-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+    <div class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div class="mt-3 text-center">
+            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="history-modal-title">Prompt History</h3>
+            <div id="history-modal-body" class="mt-2 px-7 py-3 max-h-96 overflow-y-auto">
+                <!-- History items will be injected here -->
+            </div>
+            <div class="items-center px-4 py-3">
+                <button id="close-history-btn" class="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Prompt Modal -->
+        <div id="edit-prompt-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-2xl">
+                <h2 class="text-2xl font-bold mb-6">Edit Prompt</h2>
+                <form id="edit-prompt-form">
+                    <input type="hidden" id="edit-prompt-id">
+                    <div class="mb-4">
+                        <label for="edit-prompt-title" class="block text-sm font-medium mb-1">Title</label>
+                        <input type="text" id="edit-prompt-title" name="title" class="w-full p-2 border rounded bg-gray-200 dark:bg-gray-700" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit-prompt-description" class="block text-sm font-medium mb-1">Short Description</label>
+                        <input type="text" id="edit-prompt-description" name="description" class="w-full p-2 border rounded bg-gray-200 dark:bg-gray-700">
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit-prompt-text" class="block text-sm font-medium mb-1">Prompt Text</label>
+                        <textarea id="edit-prompt-text" name="text" rows="10" class="w-full p-2 border rounded bg-gray-200 dark:bg-gray-700" required></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit-prompt-tags" class="block text-sm font-medium mb-1">Tags</label>
+                        <div class="relative">
+                            <input type="text" id="edit-prompt-tags" name="tags" placeholder="Add tags (use / for hierarchy, e.g., coding/javascript)" class="w-full p-2 border rounded bg-gray-200 dark:bg-gray-700">
+                            <div id="edit-tag-suggestions" class="absolute z-10 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md mt-1 max-h-32 overflow-y-auto hidden">
+                                <!-- Tag suggestions will appear here -->
+                            </div>
+                        </div>
+                        <div id="edit-selected-tags" class="mt-2 flex flex-wrap gap-2">
+                            <!-- Selected tags will appear here -->
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Press Enter or comma to add a tag. Use "/" for hierarchical tags (e.g., "coding/javascript")</p>
+                    </div>
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" id="cancel-edit-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">Cancel</button>
+                        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Save as New Version</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Dexie.js for IndexedDB -->
+    <script src="https://unpkg.com/dexie@3/dist/dexie.js"></script>
+    <!-- Main Renderer Script -->
+    <script src="./src/renderer.js"></script>
+</body>
+</html>

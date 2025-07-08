@@ -6,8 +6,6 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# App Spec
-specs/*
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
@@ -124,9 +122,6 @@ release/
 # Electron Builder
 dist_electron/
 
-# Auto-generated package files
-app/
-app-builds/
 
 # macOS
 .DS_Store
