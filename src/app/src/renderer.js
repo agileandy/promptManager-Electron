@@ -2,6 +2,10 @@
 let db;
 let dataDir;
 
+// AI Service integration
+let aiService = null;
+let aiConfig = null;
+
 // Initialize database with common data directory
 async function initializeDatabase() {
     try {
@@ -33,6 +37,30 @@ async function initializeDatabase() {
     }
 }
 
+// Initialize AI service
+async function initializeAIService() {
+    try {
+        const { aiService: service } = require('./ai/AIService.js');
+        const { configManager } = require('./ai/ConfigManager.js');
+
+        // Initialize configuration manager
+        await configManager.initialize(dataDir);
+
+        // Load AI configuration
+        aiConfig = await configManager.getAIConfig();
+
+        // Initialize AI service
+        await service.initialize(aiConfig);
+        aiService = service;
+
+        console.log('AI Service initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('Failed to initialize AI service:', error);
+        return false;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Initialize database first
     const dbInitialized = await initializeDatabase();
@@ -40,6 +68,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Failed to initialize database');
         return;
     }
+
+    // Initialize AI service
+    await initializeAIService();
 
     // --- Tag Input Logic ---
     const tagInput = document.getElementById('prompt-tags');
@@ -216,6 +247,198 @@ document.addEventListener('DOMContentLoaded', async () => {
     cancelPromptBtn.addEventListener('click', () => hideModal(newPromptModal));
     cancelEditBtn.addEventListener('click', () => hideModal(editPromptModal));
     closeHistoryBtn.addEventListener('click', () => hideModal(historyModal));
+// --- AI Button Elements ---
+    const aiGenerateBtn = document.getElementById('ai-generate-btn');
+    const aiOptimizeBtn = document.getElementById('ai-optimize-btn');
+    const editAiGenerateBtn = document.getElementById('edit-ai-generate-btn');
+    const editAiOptimizeBtn = document.getElementById('edit-ai-optimize-btn');
+
+    const aiGenerateProviderSelection = document.getElementById('ai-generate-provider-selection');
+    const aiGenerateProvider = document.getElementById('ai-generate-provider');
+    const aiOptimizeProviderSelection = document.getElementById('ai-optimize-provider-selection');
+    const aiOptimizeProvider = document.getElementById('ai-optimize-provider');
+
+    const editAiGenerateProviderSelection = document.getElementById('edit-ai-generate-provider-selection');
+    const editAiGenerateProvider = document.getElementById('edit-ai-generate-provider');
+    const editAiOptimizeProviderSelection = document.getElementById('edit-ai-optimize-provider-selection');
+    const editAiOptimizeProvider = document.getElementById('edit-ai-optimize-provider');
+
+    // --- AI Helper Functions ---
+    function populateProviderDropdowns() {
+        if (!aiService) return;
+
+        const providers = aiService.getAvailableProviders();
+        const providerOptions = providers.map(provider =>
+            `<option value="${provider}">${aiConfig.providers[provider]?.name || provider}</option>`
+        ).join('');
+
+        // Populate all provider dropdowns
+        [aiGenerateProvider, aiOptimizeProvider, editAiGenerateProvider, editAiOptimizeProvider].forEach(select => {
+            if (select) {
+                select.innerHTML = '<option value="">Select AI Provider...</option>' + providerOptions;
+            }
+        });
+    }
+
+    function showLoadingState(button, originalText) {
+        button.disabled = true;
+        button.innerHTML = '<span>⏳</span><span class="hidden sm:inline">Processing...</span>';
+    }
+
+    function hideLoadingState(button, originalText) {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+
+    async function handleAIGeneration(descriptionInput, textOutput, providerSelect, providerSelection) {
+        const description = descriptionInput.value.trim();
+        if (!description) {
+            alert('Please enter a description first');
+            return;
+        }
+
+        if (!aiService) {
+            alert('AI service not initialized. Please check the console for errors.');
+            return;
+        }
+
+        const availableProviders = aiService.getAvailableProviders();
+        if (availableProviders.length === 0) {
+            alert('No AI providers are configured. Please configure an AI provider in the settings first.');
+            return;
+        }
+
+        // Show provider selection
+        providerSelection.classList.remove('hidden');
+
+        // Wait for provider selection
+        return new Promise((resolve) => {
+            const handleProviderSelection = async () => {
+                const selectedProvider = providerSelect.value;
+                if (!selectedProvider) {
+                    alert('Please select an AI provider');
+                    return;
+                }
+
+                providerSelection.classList.add('hidden');
+                providerSelect.removeEventListener('change', handleProviderSelection);
+
+                try {
+                    const generatedText = await aiService.generatePrompt(description, selectedProvider);
+                    textOutput.value = generatedText;
+                    resolve(true);
+                } catch (error) {
+                    console.error('AI generation failed:', error);
+                    alert('AI generation failed. Please try again.');
+                    resolve(false);
+                }
+            };
+
+            providerSelect.addEventListener('change', handleProviderSelection);
+        });
+    }
+
+    async function handleAIOptimization(textInput, providerSelect, providerSelection) {
+        const currentText = textInput.value.trim();
+        if (!currentText) {
+            alert('Please enter some prompt text first');
+            return;
+        }
+
+        if (!aiService) {
+            alert('AI service not initialized. Please check the console for errors.');
+            return;
+        }
+
+        const availableProviders = aiService.getAvailableProviders();
+        if (availableProviders.length === 0) {
+            alert('No AI providers are configured. Please configure an AI provider in the settings first.');
+            return;
+        }
+
+        // Show provider selection
+        providerSelection.classList.remove('hidden');
+
+        // Wait for provider selection
+        return new Promise((resolve) => {
+            const handleProviderSelection = async () => {
+                const selectedProvider = providerSelect.value;
+                if (!selectedProvider) {
+                    alert('Please select an AI provider');
+                    return;
+                }
+
+                providerSelection.classList.add('hidden');
+                providerSelect.removeEventListener('change', handleProviderSelection);
+
+                try {
+                    const optimizedText = await aiService.optimizePrompt(currentText, selectedProvider);
+                    textInput.value = optimizedText;
+                    resolve(true);
+                } catch (error) {
+                    console.error('AI optimization failed:', error);
+                    alert('AI optimization failed. Please try again.');
+                    resolve(false);
+                }
+            };
+
+            providerSelect.addEventListener('change', handleProviderSelection);
+        });
+    }
+
+    // --- AI Button Event Handlers ---
+    if (aiGenerateBtn) {
+        aiGenerateBtn.addEventListener('click', async () => {
+            const originalText = aiGenerateBtn.innerHTML;
+            showLoadingState(aiGenerateBtn, originalText);
+
+            const descriptionInput = document.getElementById('prompt-description');
+            const textOutput = document.getElementById('prompt-text');
+
+            await handleAIGeneration(descriptionInput, textOutput, aiGenerateProvider, aiGenerateProviderSelection);
+            hideLoadingState(aiGenerateBtn, originalText);
+        });
+    }
+
+    if (aiOptimizeBtn) {
+        aiOptimizeBtn.addEventListener('click', async () => {
+            const originalText = aiOptimizeBtn.innerHTML;
+            showLoadingState(aiOptimizeBtn, originalText);
+
+            const textInput = document.getElementById('prompt-text');
+
+            await handleAIOptimization(textInput, aiOptimizeProvider, aiOptimizeProviderSelection);
+            hideLoadingState(aiOptimizeBtn, originalText);
+        });
+    }
+
+    if (editAiGenerateBtn) {
+        editAiGenerateBtn.addEventListener('click', async () => {
+            const originalText = editAiGenerateBtn.innerHTML;
+            showLoadingState(editAiGenerateBtn, originalText);
+
+            const descriptionInput = document.getElementById('edit-prompt-description');
+            const textOutput = document.getElementById('edit-prompt-text');
+
+            await handleAIGeneration(descriptionInput, textOutput, editAiGenerateProvider, editAiGenerateProviderSelection);
+            hideLoadingState(editAiGenerateBtn, originalText);
+        });
+    }
+
+    if (editAiOptimizeBtn) {
+        editAiOptimizeBtn.addEventListener('click', async () => {
+            const originalText = editAiOptimizeBtn.innerHTML;
+            showLoadingState(editAiOptimizeBtn, originalText);
+
+            const textInput = document.getElementById('edit-prompt-text');
+
+            await handleAIOptimization(textInput, editAiOptimizeProvider, editAiOptimizeProviderSelection);
+            hideLoadingState(editAiOptimizeBtn, originalText);
+        });
+    }
+
+    // Initialize AI provider dropdowns after AI service is loaded
+    populateProviderDropdowns();
 
         // --- Copy functionality inside history modal ---
         historyModalBody.addEventListener('click', async (event) => {
