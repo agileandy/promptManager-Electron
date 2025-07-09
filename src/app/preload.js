@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ai: {
     initialize: () => ipcRenderer.invoke('ai-initialize'),
     getProviders: () => ipcRenderer.invoke('ai-get-providers'),
+    getDefaultProvider: () => ipcRenderer.invoke('ai-get-default-provider'),
+    getProviderModels: (providerName) => ipcRenderer.invoke('ai-get-provider-models', providerName),
     generateDescription: (description, providerName) => ipcRenderer.invoke('ai-generate-description', description, providerName),
     optimizePrompt: (promptText, providerName) => ipcRenderer.invoke('ai-optimize-prompt', promptText, providerName),
     saveConfig: (config) => ipcRenderer.invoke('ai-save-config', config),

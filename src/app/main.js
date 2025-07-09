@@ -93,6 +93,31 @@ function registerAIHandlers() {
     return aiService.getAvailableProviders();
   });
 
+  // Get default AI provider
+  ipcMain.handle('ai-get-default-provider', () => {
+    console.log('ai-get-default-provider handler called');
+    if (!aiService) {
+      return null;
+    }
+    return aiService.getDefaultProvider();
+  });
+
+  // Get available models for a provider
+  ipcMain.handle('ai-get-provider-models', async (event, providerName) => {
+    console.log('ai-get-provider-models handler called for:', providerName);
+    if (!aiService) {
+      return { success: false, error: 'AI service not initialized', models: [] };
+    }
+
+    try {
+      const models = await aiService.getAvailableModels(providerName);
+      return { success: true, models };
+    } catch (error) {
+      console.error(`Failed to get models for ${providerName}:`, error);
+      return { success: false, error: error.message, models: [] };
+    }
+  });
+
   // Generate prompt description
   ipcMain.handle('ai-generate-description', async (event, description, providerName) => {
     console.log('ai-generate-description handler called');

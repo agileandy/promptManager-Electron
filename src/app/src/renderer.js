@@ -46,8 +46,14 @@ async function initializeAIService() {
         const result = await window.electronAPI.ai.initialize();
 
         if (result.success) {
+            // Get default provider and AI config
+            const defaultProvider = await window.electronAPI.ai.getDefaultProvider();
+            aiConfig = await window.electronAPI.ai.getConfig();
+
             aiService = {
                 getAvailableProviders: () => result.providers,
+                getDefaultProvider: () => defaultProvider,
+                getProviderModels: (providerName) => window.electronAPI.ai.getProviderModels(providerName),
                 generateDescription: (description, providerName) =>
                     window.electronAPI.ai.generateDescription(description, providerName),
                 optimizePrompt: (promptText, providerName) =>
@@ -56,6 +62,7 @@ async function initializeAIService() {
 
             console.log('AI Service initialized successfully');
             console.log('Available providers:', result.providers);
+            console.log('Default provider:', defaultProvider);
             return true;
         } else {
             console.error('AI service initialization failed:', result.error);
@@ -66,33 +73,6 @@ async function initializeAIService() {
         console.error('Error stack:', error.stack);
         return false;
     }
-}
-// Global function to populate provider dropdowns (accessible from AI settings)
-function populateProviderDropdowns() {
-    if (!aiService) return;
-
-    const providers = aiService.getAvailableProviders();
-    const providerOptions = providers.map(provider => {
-        // Safe access to aiConfig with fallback
-        const providerName = aiConfig?.providers?.[provider]?.name || provider;
-        return `<option value="${provider}">${providerName}</option>`;
-    }).join('');
-
-    // Get all provider dropdown elements by ID
-    const dropdownIds = [
-        'ai-generate-provider',
-        'ai-optimize-provider',
-        'edit-ai-generate-provider',
-        'edit-ai-optimize-provider'
-    ];
-
-    // Populate all provider dropdowns
-    dropdownIds.forEach(id => {
-        const select = document.getElementById(id);
-        if (select) {
-            select.innerHTML = '<option value="">Select AI Provider...</option>' + providerOptions;
-        }
-    });
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -290,16 +270,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const editAiGenerateBtn = document.getElementById('edit-ai-generate-btn');
     const editAiOptimizeBtn = document.getElementById('edit-ai-optimize-btn');
 
-    const aiGenerateProviderSelection = document.getElementById('ai-generate-provider-selection');
-    const aiGenerateProvider = document.getElementById('ai-generate-provider');
-    const aiOptimizeProviderSelection = document.getElementById('ai-optimize-provider-selection');
-    const aiOptimizeProvider = document.getElementById('ai-optimize-provider');
-
-    const editAiGenerateProviderSelection = document.getElementById('edit-ai-generate-provider-selection');
-    const editAiGenerateProvider = document.getElementById('edit-ai-generate-provider');
-    const editAiOptimizeProviderSelection = document.getElementById('edit-ai-optimize-provider-selection');
-    const editAiOptimizeProvider = document.getElementById('edit-ai-optimize-provider');
-
     // --- AI Helper Functions ---
 
     function showLoadingState(button, originalText) {
@@ -312,100 +282,76 @@ document.addEventListener('DOMContentLoaded', async () => {
         button.innerHTML = originalText;
     }
 
-    async function handleAIGeneration(descriptionInput, textOutput, providerSelect, providerSelection) {
+    async function handleAIGeneration(descriptionInput, textOutput) {
         const description = descriptionInput.value.trim();
         if (!description) {
             alert('Please enter a description first');
-            return;
+            return false;
         }
 
         if (!aiService) {
             alert('AI service not initialized. Please check the console for errors.');
-            return;
+            return false;
         }
 
         const availableProviders = aiService.getAvailableProviders();
         if (availableProviders.length === 0) {
             alert('No AI providers are configured. Please configure an AI provider in the settings first.');
-            return;
+            return false;
         }
 
-        // Show provider selection
-        providerSelection.classList.remove('hidden');
+        const defaultProvider = aiService.getDefaultProvider();
+        if (!defaultProvider) {
+            alert('No default AI provider is configured. Please set a default provider in the settings.');
+            return false;
+        }
 
-        // Wait for provider selection
-        return new Promise((resolve) => {
-            const handleProviderSelection = async () => {
-                const selectedProvider = providerSelect.value;
-                if (!selectedProvider) {
-                    alert('Please select an AI provider');
-                    return;
-                }
-
-                providerSelection.classList.add('hidden');
-                providerSelect.removeEventListener('change', handleProviderSelection);
-
-                try {
-                    const generatedText = await aiService.generateDescription(description, selectedProvider);
-                    textOutput.value = generatedText;
-                    resolve(true);
-                } catch (error) {
-                    console.error('AI generation failed:', error);
-                    alert('AI generation failed. Please try again.');
-                    resolve(false);
-                }
-            };
-
-            providerSelect.addEventListener('change', handleProviderSelection);
-        });
+        try {
+            console.log(`Using default provider: ${defaultProvider} for AI generation`);
+            const generatedText = await aiService.generateDescription(description, defaultProvider);
+            textOutput.value = generatedText;
+            return true;
+        } catch (error) {
+            console.error('AI generation failed:', error);
+            alert(`AI generation failed: ${error.message}`);
+            return false;
+        }
     }
 
-    async function handleAIOptimization(textInput, providerSelect, providerSelection) {
+    async function handleAIOptimization(textInput) {
         const currentText = textInput.value.trim();
         if (!currentText) {
             alert('Please enter some prompt text first');
-            return;
+            return false;
         }
 
         if (!aiService) {
             alert('AI service not initialized. Please check the console for errors.');
-            return;
+            return false;
         }
 
         const availableProviders = aiService.getAvailableProviders();
         if (availableProviders.length === 0) {
             alert('No AI providers are configured. Please configure an AI provider in the settings first.');
-            return;
+            return false;
         }
 
-        // Show provider selection
-        providerSelection.classList.remove('hidden');
+        const defaultProvider = aiService.getDefaultProvider();
+        if (!defaultProvider) {
+            alert('No default AI provider is configured. Please set a default provider in the settings.');
+            return false;
+        }
 
-        // Wait for provider selection
-        return new Promise((resolve) => {
-            const handleProviderSelection = async () => {
-                const selectedProvider = providerSelect.value;
-                if (!selectedProvider) {
-                    alert('Please select an AI provider');
-                    return;
-                }
-
-                providerSelection.classList.add('hidden');
-                providerSelect.removeEventListener('change', handleProviderSelection);
-
-                try {
-                    const optimizedText = await aiService.optimizePrompt(currentText, selectedProvider);
-                    textInput.value = optimizedText;
-                    resolve(true);
-                } catch (error) {
-                    console.error('AI optimization failed:', error);
-                    alert('AI optimization failed. Please try again.');
-                    resolve(false);
-                }
-            };
-
-            providerSelect.addEventListener('change', handleProviderSelection);
-        });
+        try {
+            console.log(`Using default provider: ${defaultProvider} for AI optimization`);
+            const optimizedText = await aiService.optimizePrompt(currentText, defaultProvider);
+            textInput.value = optimizedText;
+            return true;
+        } catch (error) {
+            console.error('AI optimization failed:', error);
+            alert(`AI optimization failed: ${error.message}`);
+            return false;
+        }
     }
 
     // --- AI Button Event Handlers ---
@@ -417,7 +363,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const descriptionInput = document.getElementById('prompt-description');
             const textOutput = document.getElementById('prompt-text');
 
-            await handleAIGeneration(descriptionInput, textOutput, aiGenerateProvider, aiGenerateProviderSelection);
+            await handleAIGeneration(descriptionInput, textOutput);
             hideLoadingState(aiGenerateBtn, originalText);
         });
     }
@@ -429,7 +375,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const textInput = document.getElementById('prompt-text');
 
-            await handleAIOptimization(textInput, aiOptimizeProvider, aiOptimizeProviderSelection);
+            await handleAIOptimization(textInput);
             hideLoadingState(aiOptimizeBtn, originalText);
         });
     }
@@ -442,7 +388,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const descriptionInput = document.getElementById('edit-prompt-description');
             const textOutput = document.getElementById('edit-prompt-text');
 
-            await handleAIGeneration(descriptionInput, textOutput, editAiGenerateProvider, editAiGenerateProviderSelection);
+            await handleAIGeneration(descriptionInput, textOutput);
             hideLoadingState(editAiGenerateBtn, originalText);
         });
     }
@@ -454,13 +400,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const textInput = document.getElementById('edit-prompt-text');
 
-            await handleAIOptimization(textInput, editAiOptimizeProvider, editAiOptimizeProviderSelection);
+            await handleAIOptimization(textInput);
             hideLoadingState(editAiOptimizeBtn, originalText);
         });
     }
-
-    // Initialize AI provider dropdowns after AI service is loaded
-    populateProviderDropdowns();
 
         // --- Copy functionality inside history modal ---
         historyModalBody.addEventListener('click', async (event) => {

@@ -93,6 +93,33 @@ class AIService {
     }
 
     /**
+     * Get default provider name
+     * @returns {string} Default provider name
+     */
+    getDefaultProvider() {
+        return this.defaultProvider;
+    }
+
+    /**
+     * Get available models for a specific provider
+     * @param {string} providerName - Name of the provider
+     * @returns {Promise<Array>} Array of available models
+     */
+    async getAvailableModels(providerName) {
+        const provider = this.getProvider(providerName);
+        if (!provider) {
+            throw new Error(`Provider ${providerName} not found`);
+        }
+
+        try {
+            return await provider.getAvailableModels();
+        } catch (error) {
+            console.error(`Failed to get models for ${providerName}:`, error);
+            return [];
+        }
+    }
+
+    /**
      * Test connection to a specific provider
      * @param {string} providerName - Name of the provider to test
      * @returns {Promise<boolean>} True if connection successful
