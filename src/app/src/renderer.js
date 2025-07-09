@@ -293,6 +293,177 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // --- Edit Tag Name Function ---
+    async function editTagName(tagId, currentName, currentFullPath) {
+        try {
+            console.log(`Starting edit for tag ID: ${tagId}, name: "${currentName}", path: "${currentFullPath}"`);
+            
+            // Show edit modal instead of prompt
+            const newName = await showEditTagModal(currentName);
+            if (!newName || newName.trim() === '') {
+                console.log('User cancelled or entered empty name');
+                return; // User cancelled or entered empty name
+            }
+            
+            const trimmedNewName = newName.trim();
+            if (trimmedNewName === currentName) {
+                console.log('No change in name');
+                return; // No change
+            }
+            
+            console.log(`New name: "${trimmedNewName}"`);
+            
+            // Get the tag to edit
+            const tagToEdit = await db.tags.get(tagId);
+            if (!tagToEdit) {
+                console.error('Tag not found in database');
+                alert('Tag not found');
+                return;
+            }
+            
+            console.log('Tag found:', tagToEdit);
+            
+            // Calculate new full path
+            let newFullPath;
+            if (tagToEdit.parentId) {
+                const parentTag = await db.tags.get(tagToEdit.parentId);
+                if (!parentTag) {
+                    console.error('Parent tag not found');
+                    alert('Parent tag not found');
+                    return;
+                }
+                newFullPath = `${parentTag.fullPath}/${trimmedNewName}`;
+            } else {
+                newFullPath = trimmedNewName;
+            }
+            
+            console.log(`New full path: "${newFullPath}"`);
+            
+            // Check for duplicate full path
+            const existingTag = await db.tags.where('fullPath').equals(newFullPath).first();
+            if (existingTag && existingTag.id !== tagId) {
+                console.log('Duplicate path found:', existingTag);
+                alert(`A tag with the path "${newFullPath}" already exists. Please choose a different name.`);
+                return;
+            }
+            
+            console.log('No duplicates found, proceeding with update');
+            
+            // Update the tag name and fullPath
+            await db.tags.update(tagId, {
+                name: trimmedNewName,
+                fullPath: newFullPath
+            });
+            
+            console.log('Tag updated successfully');
+            
+            // Recursively update all descendant tags' fullPaths
+            await updateDescendantPaths(tagId, newFullPath);
+            
+            console.log('Descendant paths updated');
+            
+            // Refresh the tag tree to show changes
+            await renderTagTree();
+            
+            console.log(`Tag renamed from "${currentFullPath}" to "${newFullPath}"`);
+            
+        } catch (error) {
+            console.error('Detailed error editing tag name:', error);
+            alert(`Error editing tag name: ${error.message}. Check console for details.`);
+        }
+    }
+    
+    // --- Helper function to update descendant tag paths ---
+    async function updateDescendantPaths(parentTagId, newParentPath) {
+        try {
+            // Get all direct children of this tag
+            const childTags = await db.tags.where('parentId').equals(parentTagId).toArray();
+            
+            for (const childTag of childTags) {
+                // Update child's fullPath
+                const newChildPath = `${newParentPath}/${childTag.name}`;
+                await db.tags.update(childTag.id, {
+                    fullPath: newChildPath
+                });
+                
+                // Recursively update this child's descendants
+                await updateDescendantPaths(childTag.id, newChildPath);
+            }
+        } catch (error) {
+            console.error('Error updating descendant paths:', error);
+        }
+    }
+
+    // --- Show Edit Tag Modal ---
+    function showEditTagModal(currentName) {
+        return new Promise((resolve) => {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            
+            // Create modal content
+            const modal = document.createElement('div');
+            modal.className = 'bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-96';
+            modal.innerHTML = `
+                <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Edit Tag Name</h3>
+                <input type="text" id="edit-tag-input" value="${currentName}" 
+                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded mb-4 
+                              bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                <div class="flex justify-end space-x-2">
+                    <button id="cancel-edit-tag" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500">Cancel</button>
+                    <button id="save-edit-tag" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            // Focus and select the input
+            const input = document.getElementById('edit-tag-input');
+            input.focus();
+            input.select();
+            
+            // Handle save
+            const saveBtn = document.getElementById('save-edit-tag');
+            const cancelBtn = document.getElementById('cancel-edit-tag');
+            
+            const cleanup = () => {
+                document.body.removeChild(overlay);
+            };
+            
+            saveBtn.onclick = () => {
+                const newName = input.value.trim();
+                cleanup();
+                resolve(newName);
+            };
+            
+            cancelBtn.onclick = () => {
+                cleanup();
+                resolve(null);
+            };
+            
+            // Handle Enter key
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    const newName = input.value.trim();
+                    cleanup();
+                    resolve(newName);
+                } else if (e.key === 'Escape') {
+                    cleanup();
+                    resolve(null);
+                }
+            };
+            
+            // Handle click outside modal
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    cleanup();
+                    resolve(null);
+                }
+            };
+        });
+    }
+
 // --- Render Tag Tree ---
     async function renderTagTree() {
         const tagTree = document.getElementById('tag-tree');
@@ -347,7 +518,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const showDelete = !hasChildren && promptCount === 0;
 
                 const li = document.createElement('li');
-                li.classList.add('mb-2', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1');
+                li.classList.add('mb-2', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1', 'group');
                 
                 // Create a wrapper div for the tag content and delete button
                 const tagWrapper = document.createElement('div');
@@ -359,10 +530,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 tagWrapper.appendChild(tagContent);
                 
+                // Add edit button (hidden by default, shown on hover)
+                const editBtn = document.createElement('button');
+                editBtn.innerHTML = '&#9998;'; // Pencil icon
+                editBtn.className = 'text-blue-500 hover:text-blue-700 ml-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity';
+                editBtn.title = 'Edit tag name';
+                editBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    await editTagName(tag.id, tag.name, tag.fullPath);
+                };
+                tagWrapper.appendChild(editBtn);
+
                 if (showDelete) {
                     const deleteBtn = document.createElement('button');
                     deleteBtn.innerHTML = '&#128465;'; // Trash icon
-                    deleteBtn.className = 'text-red-500 hover:text-red-700 ml-2 text-sm';
+                    deleteBtn.className = 'text-red-500 hover:text-red-700 ml-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity';
                     deleteBtn.title = 'Delete unused tag';
                     deleteBtn.onclick = async (e) => {
                         e.stopPropagation();
