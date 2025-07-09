@@ -63,8 +63,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const matchedTags = await db.tags.where('fullPath').startsWithIgnoreCase(query).limit(10).toArray();
-            suggestionsElement.innerHTML = matchedTags.map(tag => 
-                `<li class="p-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600" data-tag-path="${tag.fullPath}">${tag.fullPath}</li>`
+            
+            // Get counts for each matched tag
+            const tagsWithCounts = await Promise.all(matchedTags.map(async (tag) => {
+                const promptTagRelations = await db.promptTags.where('tagId').equals(tag.id).toArray();
+                const promptCount = promptTagRelations.length;
+                return { ...tag, promptCount };
+            }));
+            
+            suggestionsElement.innerHTML = tagsWithCounts.map(tag => 
+                `<li class="p-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600" data-tag-path="${tag.fullPath}">${tag.fullPath} <span class="text-xs text-gray-500 dark:text-gray-400">(${tag.promptCount})</span></li>`
             ).join('');
             suggestionsElement.classList.toggle('hidden', matchedTags.length === 0);
         });
@@ -236,17 +244,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tagTree = document.getElementById('tag-tree');
         tagTree.innerHTML = '';
 
-        const buildTree = (tags, parentId = null) => {
+        const buildTree = async (tags, parentId = null) => {
             const filteredTags = tags.filter(tag => tag.parentId === parentId);
             if (filteredTags.length === 0) return null;
 
             const ul = document.createElement('ul');
             ul.classList.add('ml-2', 'pl-3', 'border-l', 'border-gray-300', 'dark:border-gray-600');
 
-            filteredTags.forEach(tag => {
+            for (const tag of filteredTags) {
+                // Get count of prompts using this tag
+                const promptTagRelations = await db.promptTags.where('tagId').equals(tag.id).toArray();
+                const promptCount = promptTagRelations.length;
+
                 const li = document.createElement('li');
                 li.classList.add('mb-2', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1');
-                li.textContent = tag.name;
+                li.innerHTML = `${tag.name} <span class="text-xs text-gray-500 dark:text-gray-400">(${promptCount})</span>`;
                 li.setAttribute('data-tag-path', tag.fullPath);
 
                 li.addEventListener('click', async (e) => {
@@ -256,19 +268,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     li.classList.add('bg-gray-300', 'dark:bg-gray-800');
                 });
 
-                const childrenTree = buildTree(tags, tag.id);
+                const childrenTree = await buildTree(tags, tag.id);
                 if (childrenTree) {
                     li.appendChild(childrenTree);
                 }
 
                 ul.appendChild(li);
-            });
+            }
 
             return ul;
         };
 
         const allTags = await db.tags.toArray();
-        const tree = buildTree(allTags);
+        const tree = await buildTree(allTags);
         if (tree) {
             tagTree.appendChild(tree);
         }
