@@ -159,3 +159,6 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+package.json.backup
+specs
+app.log
