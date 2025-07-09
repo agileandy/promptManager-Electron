@@ -5,5 +5,13 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   getDataDir: () => ipcRenderer.invoke('get-data-dir'),
-  openDatabaseViewer: () => ipcRenderer.invoke('open-database-viewer')
+  openDatabaseViewer: () => ipcRenderer.invoke('open-database-viewer'),
+
+  // AI Service API
+  ai: {
+    initialize: () => ipcRenderer.invoke('ai-initialize'),
+    getProviders: () => ipcRenderer.invoke('ai-get-providers'),
+    generateDescription: (description, providerName) => ipcRenderer.invoke('ai-generate-description', description, providerName),
+    optimizePrompt: (promptText, providerName) => ipcRenderer.invoke('ai-optimize-prompt', promptText, providerName)
+  }
 });

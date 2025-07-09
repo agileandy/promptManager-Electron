@@ -40,23 +40,30 @@ async function initializeDatabase() {
 // Initialize AI service
 async function initializeAIService() {
     try {
-        const { aiService: service } = require('./ai/AIService.js');
-        const { configManager } = require('./ai/ConfigManager.js');
+        console.log('Starting AI service initialization...');
 
-        // Initialize configuration manager
-        await configManager.initialize(dataDir);
+        // Initialize AI service via IPC
+        const result = await window.electronAPI.ai.initialize();
 
-        // Load AI configuration
-        aiConfig = await configManager.getAIConfig();
+        if (result.success) {
+            aiService = {
+                getAvailableProviders: () => result.providers,
+                generateDescription: (description, providerName) =>
+                    window.electronAPI.ai.generateDescription(description, providerName),
+                optimizePrompt: (promptText, providerName) =>
+                    window.electronAPI.ai.optimizePrompt(promptText, providerName)
+            };
 
-        // Initialize AI service
-        await service.initialize(aiConfig);
-        aiService = service;
-
-        console.log('AI Service initialized successfully');
-        return true;
+            console.log('AI Service initialized successfully');
+            console.log('Available providers:', result.providers);
+            return true;
+        } else {
+            console.error('AI service initialization failed:', result.error);
+            return false;
+        }
     } catch (error) {
         console.error('Failed to initialize AI service:', error);
+        console.error('Error stack:', error.stack);
         return false;
     }
 }

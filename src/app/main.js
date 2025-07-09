@@ -49,10 +49,90 @@ ipcMain.handle('get-data-dir', () => {
   return app.getPath('userData');
 });
 
+// AI Service variables
+let aiService = null;
+let aiConfig = null;
+
+// Register AI IPC handlers when app is ready
+function registerAIHandlers() {
+  console.log('Registering AI IPC handlers...');
+
+  // Initialize AI service
+  ipcMain.handle('ai-initialize', async () => {
+    console.log('ai-initialize handler called');
+    try {
+      const { aiService: service } = require(path.resolve(__dirname, 'src/ai/AIService.js'));
+      const { configManager } = require(path.resolve(__dirname, 'src/ai/ConfigManager.js'));
+
+      // Initialize configuration manager
+      const dataDir = app.getPath('userData');
+      await configManager.initialize(dataDir);
+
+      // Load AI configuration
+      aiConfig = await configManager.getAIConfig();
+
+      // Initialize AI service
+      await service.initialize(aiConfig);
+      aiService = service;
+
+      console.log('AI Service initialized successfully');
+      console.log('Available providers:', aiService.getAvailableProviders());
+      return { success: true, providers: aiService.getAvailableProviders() };
+    } catch (error) {
+      console.error('Failed to initialize AI service:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get available AI providers
+  ipcMain.handle('ai-get-providers', () => {
+    console.log('ai-get-providers handler called');
+    if (!aiService) {
+      return [];
+    }
+    return aiService.getAvailableProviders();
+  });
+
+  // Generate prompt description
+  ipcMain.handle('ai-generate-description', async (event, description, providerName) => {
+    console.log('ai-generate-description handler called');
+    if (!aiService) {
+      throw new Error('AI service not initialized');
+    }
+
+    try {
+      return await aiService.generateDescription(description, providerName);
+    } catch (error) {
+      console.error('AI generation failed:', error);
+      throw error;
+    }
+  });
+
+  // Optimize prompt
+  ipcMain.handle('ai-optimize-prompt', async (event, promptText, providerName) => {
+    console.log('ai-optimize-prompt handler called');
+    if (!aiService) {
+      throw new Error('AI service not initialized');
+    }
+
+    try {
+      return await aiService.optimizePrompt(promptText, providerName);
+    } catch (error) {
+      console.error('AI optimization failed:', error);
+      throw error;
+    }
+  });
+
+  console.log('All AI IPC handlers registered successfully');
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // Register AI IPC handlers before creating window
+  registerAIHandlers();
+
   createWindow();
 
   app.on('activate', function () {
