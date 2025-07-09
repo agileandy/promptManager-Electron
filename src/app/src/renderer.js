@@ -246,6 +246,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tagTree = document.getElementById('tag-tree');
         tagTree.innerHTML = '';
 
+        // Helper function to get all descendant tags for a given tag
+        const getAllDescendantTags = (tags, parentId) => {
+            const descendants = [];
+            const children = tags.filter(tag => tag.parentId === parentId);
+            
+            for (const child of children) {
+                descendants.push(child);
+                descendants.push(...getAllDescendantTags(tags, child.id));
+            }
+            
+            return descendants;
+        };
+
+        // Helper function to get unique prompt count for a tag and all its descendants
+        const getTagTreePromptCount = async (tags, tagId) => {
+            // Get the tag itself and all its descendants
+            const allRelevantTags = [
+                tags.find(t => t.id === tagId),
+                ...getAllDescendantTags(tags, tagId)
+            ].filter(Boolean);
+            
+            // Get all prompt IDs that have any of these tags
+            const allTagIds = allRelevantTags.map(t => t.id);
+            const promptTagRelations = await db.promptTags.where('tagId').anyOf(allTagIds).toArray();
+            const promptIds = [...new Set(promptTagRelations.map(pt => pt.promptId))]; // Remove duplicates
+            
+            // Filter to only latest versions
+            const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
+            return latestPrompts.length;
+        };
+
         const buildTree = async (tags, parentId = null) => {
             const filteredTags = tags.filter(tag => tag.parentId === parentId);
             if (filteredTags.length === 0) return null;
@@ -254,11 +285,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             ul.classList.add('ml-2', 'pl-3', 'border-l', 'border-gray-300', 'dark:border-gray-600');
 
             for (const tag of filteredTags) {
-                // Get count of prompts using this tag (only latest versions)
-                const promptTagRelations = await db.promptTags.where('tagId').equals(tag.id).toArray();
-                const promptIds = promptTagRelations.map(pt => pt.promptId);
-                const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
-                const promptCount = latestPrompts.length;
+                // Get rollup count of unique prompts in this tag's entire subtree
+                const promptCount = await getTagTreePromptCount(tags, tag.id);
 
                 const li = document.createElement('li');
                 li.classList.add('mb-2', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1');
