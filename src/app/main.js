@@ -160,7 +160,7 @@ function registerAIHandlers() {
         defaultProvider: config.defaultProvider,
         providers: {
           openrouter: {
-            enabled: config.openrouter.enabled && !!config.openrouter.apiKey,
+            enabled: config.openrouter.enabled, // Save the user's enabled preference regardless of API key
             name: "OpenRouter",
             endpoint: "https://openrouter.ai/api/v1/chat/completions",
             model: config.openrouter.model,
@@ -169,7 +169,7 @@ function registerAIHandlers() {
             maxRetries: config.openrouter.retries
           },
           ollama: {
-            enabled: config.ollama.enabled && !!config.ollama.endpoint,
+            enabled: config.ollama.enabled, // Save the user's enabled preference regardless of endpoint
             name: "Ollama",
             endpoint: config.ollama.endpoint.endsWith('/api/chat') ? config.ollama.endpoint : config.ollama.endpoint + "/api/chat",
             model: config.ollama.model,
@@ -216,12 +216,14 @@ function registerAIHandlers() {
       // Convert ConfigManager format to UI format
       const uiConfig = {
         openrouter: {
+          enabled: aiConfig.providers?.openrouter?.enabled !== false, // Default to true if not explicitly false
           apiKey: aiConfig.providers?.openrouter?.apiKey || '',
           model: aiConfig.providers?.openrouter?.model || 'anthropic/claude-3.5-sonnet',
           timeout: aiConfig.providers?.openrouter?.timeout || 30000,
           retries: aiConfig.providers?.openrouter?.maxRetries || 3
         },
         ollama: {
+          enabled: aiConfig.providers?.ollama?.enabled !== false, // Default to true if not explicitly false
           endpoint: aiConfig.providers?.ollama?.endpoint?.replace('/api/chat', '') || 'http://localhost:11434',
           model: aiConfig.providers?.ollama?.model || 'llama2',
           timeout: aiConfig.providers?.ollama?.timeout || 30000,
