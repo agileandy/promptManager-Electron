@@ -1414,51 +1414,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initializeAISettingsModal() {
     const aiSettingsBtn = document.getElementById('ai-settings-btn');
     const aiSettingsModal = document.getElementById('ai-settings-modal');
-    const aiSettingsClose = document.getElementById('ai-settings-close');
-    const aiSettingsCancel = document.getElementById('ai-settings-cancel');
-    const aiSettingsSave = document.getElementById('ai-settings-save');
-    const aiSettingsReset = document.getElementById('ai-settings-reset');
+    const aiSettingsClose = document.getElementById('close-ai-settings');
+    const aiSettingsCancel = document.getElementById('cancel-ai-settings');
+    const aiSettingsSave = document.getElementById('save-ai-settings');
+    const aiSettingsReset = document.getElementById('reset-ai-settings');
 
     // Tab elements
     const openrouterTab = document.getElementById('openrouter-tab');
     const ollamaTab = document.getElementById('ollama-tab');
     const generalTab = document.getElementById('general-tab');
-    const openrouterPanel = document.getElementById('openrouter-panel');
-    const ollamaPanel = document.getElementById('ollama-panel');
-    const generalPanel = document.getElementById('general-panel');
+    const openrouterPanel = document.getElementById('openrouter-content');
+    const ollamaPanel = document.getElementById('ollama-content');
+    const generalPanel = document.getElementById('general-content');
 
     // Test connection buttons
-    const testOpenrouterBtn = document.getElementById('test-openrouter');
-    const testOllamaBtn = document.getElementById('test-ollama');
+    const testOpenrouterBtn = document.getElementById('test-openrouter-connection');
+    const testOllamaBtn = document.getElementById('test-ollama-connection');
 
     // Current active tab
     let activeTab = 'openrouter';
 
     // Tab switching function
     function switchTab(tabName) {
-        // Update tab buttons
+        // Update tab buttons - remove active class from all
         [openrouterTab, ollamaTab, generalTab].forEach(tab => {
-            tab.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
-            tab.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            tab.classList.remove('active', 'bg-purple-100', 'dark:bg-purple-900');
         });
 
-        // Update panels
+        // Update panels - hide all
         [openrouterPanel, ollamaPanel, generalPanel].forEach(panel => {
             panel.classList.add('hidden');
         });
 
         // Activate selected tab and panel
         if (tabName === 'openrouter') {
-            openrouterTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
-            openrouterTab.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+            openrouterTab.classList.add('active', 'bg-purple-100', 'dark:bg-purple-900');
             openrouterPanel.classList.remove('hidden');
         } else if (tabName === 'ollama') {
-            ollamaTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
-            ollamaTab.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+            ollamaTab.classList.add('active', 'bg-purple-100', 'dark:bg-purple-900');
             ollamaPanel.classList.remove('hidden');
         } else if (tabName === 'general') {
-            generalTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
-            generalTab.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+            generalTab.classList.add('active', 'bg-purple-100', 'dark:bg-purple-900');
             generalPanel.classList.remove('hidden');
         }
 
@@ -1534,9 +1530,10 @@ async function loadAISettings() {
 
         // General settings
         document.getElementById('default-provider').value = config.defaultProvider || 'openrouter';
-        document.getElementById('generation-system-prompt').value = config.systemPrompts?.generation || 'You are an AI assistant that helps generate high-quality prompts based on user descriptions.';
-        document.getElementById('optimization-system-prompt').value = config.systemPrompts?.optimization || 'You are an AI assistant that helps optimize and improve existing prompts for better clarity and effectiveness.';
-        document.getElementById('temperature').value = config.temperature || 0.7;
+        document.getElementById('generation-prompt').value = config.systemPrompts?.generation || 'You are an AI assistant that helps generate high-quality prompts based on user descriptions.';
+        document.getElementById('optimization-prompt').value = config.systemPrompts?.optimization || 'You are an AI assistant that helps optimize and improve existing prompts for better clarity and effectiveness.';
+        document.getElementById('generation-temperature').value = config.temperature?.generation || 0.7;
+        document.getElementById('optimization-temperature').value = config.temperature?.optimization || 0.3;
 
         console.log('AI settings loaded successfully');
     } catch (error) {
@@ -1563,10 +1560,13 @@ async function saveAISettings() {
             },
             defaultProvider: document.getElementById('default-provider').value,
             systemPrompts: {
-                generation: document.getElementById('generation-system-prompt').value.trim(),
-                optimization: document.getElementById('optimization-system-prompt').value.trim()
+                generation: document.getElementById('generation-prompt').value.trim(),
+                optimization: document.getElementById('optimization-prompt').value.trim()
             },
-            temperature: parseFloat(document.getElementById('temperature').value)
+            temperature: {
+                generation: parseFloat(document.getElementById('generation-temperature').value),
+                optimization: parseFloat(document.getElementById('optimization-temperature').value)
+            }
         };
 
         const result = await window.electronAPI.ai.saveConfig(config);
@@ -1604,9 +1604,10 @@ async function resetAISettings() {
         document.getElementById('ollama-retries').value = '3';
 
         document.getElementById('default-provider').value = 'openrouter';
-        document.getElementById('generation-system-prompt').value = 'You are an AI assistant that helps generate high-quality prompts based on user descriptions.';
-        document.getElementById('optimization-system-prompt').value = 'You are an AI assistant that helps optimize and improve existing prompts for better clarity and effectiveness.';
-        document.getElementById('temperature').value = '0.7';
+        document.getElementById('generation-prompt').value = 'You are an AI assistant that helps generate high-quality prompts based on user descriptions.';
+        document.getElementById('optimization-prompt').value = 'You are an AI assistant that helps optimize and improve existing prompts for better clarity and effectiveness.';
+        document.getElementById('generation-temperature').value = '0.7';
+        document.getElementById('optimization-temperature').value = '0.3';
 
         console.log('AI settings reset to defaults');
     } catch (error) {
@@ -1618,8 +1619,8 @@ async function resetAISettings() {
 // Test provider connection
 async function testProviderConnection(provider) {
     const testBtn = provider === 'openrouter' ?
-        document.getElementById('test-openrouter') :
-        document.getElementById('test-ollama');
+        document.getElementById('test-openrouter-connection') :
+        document.getElementById('test-ollama-connection');
 
     const originalText = testBtn.textContent;
 

@@ -128,13 +128,50 @@ function registerAIHandlers() {
     console.log('ai-save-config handler called');
     try {
       const { configManager } = require(path.resolve(__dirname, 'src/ai/ConfigManager.js'));
-      await configManager.saveAIConfig(config);
+
+      // Convert the UI config format to the ConfigManager format
+      const fullConfig = await configManager.loadConfig();
+      fullConfig.ai = {
+        defaultProvider: config.defaultProvider,
+        providers: {
+          openrouter: {
+            enabled: !!config.openrouter.apiKey,
+            name: "OpenRouter",
+            endpoint: "https://openrouter.ai/api/v1/chat/completions",
+            model: config.openrouter.model,
+            apiKey: config.openrouter.apiKey,
+            timeout: config.openrouter.timeout,
+            maxRetries: config.openrouter.retries
+          },
+          ollama: {
+            enabled: !!config.ollama.endpoint,
+            name: "Ollama",
+            endpoint: config.ollama.endpoint + "/api/chat",
+            model: config.ollama.model,
+            apiKey: null,
+            timeout: config.ollama.timeout,
+            maxRetries: config.ollama.retries
+          }
+        },
+        generation: {
+          systemPrompt: config.systemPrompts.generation,
+          maxTokens: 2000,
+          temperature: config.temperature.generation
+        },
+        optimization: {
+          systemPrompt: config.systemPrompts.optimization,
+          maxTokens: 2000,
+          temperature: config.temperature.optimization
+        }
+      };
+
+      await configManager.saveConfig(fullConfig);
 
       // Reinitialize AI service with new config
       const { aiService: service } = require(path.resolve(__dirname, 'src/ai/AIService.js'));
-      await service.initialize(config);
+      await service.initialize(fullConfig.ai);
       aiService = service;
-      aiConfig = config;
+      aiConfig = fullConfig.ai;
 
       console.log('AI configuration saved and service reinitialized');
       return { success: true, providers: aiService.getAvailableProviders() };
@@ -149,11 +186,37 @@ function registerAIHandlers() {
     console.log('ai-get-config handler called');
     try {
       const { configManager } = require(path.resolve(__dirname, 'src/ai/ConfigManager.js'));
-      const config = await configManager.getAIConfig();
-      return { success: true, config };
+      const aiConfig = await configManager.getAIConfig();
+
+      // Convert ConfigManager format to UI format
+      const uiConfig = {
+        openrouter: {
+          apiKey: aiConfig.providers?.openrouter?.apiKey || '',
+          model: aiConfig.providers?.openrouter?.model || 'anthropic/claude-3.5-sonnet',
+          timeout: aiConfig.providers?.openrouter?.timeout || 30000,
+          retries: aiConfig.providers?.openrouter?.maxRetries || 3
+        },
+        ollama: {
+          endpoint: aiConfig.providers?.ollama?.endpoint?.replace('/api/chat', '') || 'http://localhost:11434',
+          model: aiConfig.providers?.ollama?.model || 'llama2',
+          timeout: aiConfig.providers?.ollama?.timeout || 30000,
+          retries: aiConfig.providers?.ollama?.maxRetries || 3
+        },
+        defaultProvider: aiConfig.defaultProvider || 'openrouter',
+        systemPrompts: {
+          generation: aiConfig.generation?.systemPrompt || 'You are an AI assistant that helps generate high-quality prompts based on user descriptions.',
+          optimization: aiConfig.optimization?.systemPrompt || 'You are an AI assistant that helps optimize and improve existing prompts for better clarity and effectiveness.'
+        },
+        temperature: {
+          generation: aiConfig.generation?.temperature || 0.7,
+          optimization: aiConfig.optimization?.temperature || 0.3
+        }
+      };
+
+      return uiConfig;
     } catch (error) {
       console.error('Failed to get AI configuration:', error);
-      return { success: false, error: error.message };
+      return {};
     }
   });
 
