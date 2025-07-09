@@ -1667,7 +1667,6 @@ async function saveAISettings() {
             // Update provider dropdowns
             populateProviderDropdowns();
 
-            alert('AI settings saved successfully!');
             console.log('AI settings saved successfully');
         } else {
             throw new Error(result.error || 'Failed to save configuration');
