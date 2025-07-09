@@ -64,10 +64,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const matchedTags = await db.tags.where('fullPath').startsWithIgnoreCase(query).limit(10).toArray();
             
-            // Get counts for each matched tag
+            // Get counts for each matched tag (only latest versions)
             const tagsWithCounts = await Promise.all(matchedTags.map(async (tag) => {
                 const promptTagRelations = await db.promptTags.where('tagId').equals(tag.id).toArray();
-                const promptCount = promptTagRelations.length;
+                const promptIds = promptTagRelations.map(pt => pt.promptId);
+                const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
+                const promptCount = latestPrompts.length;
                 return { ...tag, promptCount };
             }));
             
@@ -252,9 +254,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             ul.classList.add('ml-2', 'pl-3', 'border-l', 'border-gray-300', 'dark:border-gray-600');
 
             for (const tag of filteredTags) {
-                // Get count of prompts using this tag
+                // Get count of prompts using this tag (only latest versions)
                 const promptTagRelations = await db.promptTags.where('tagId').equals(tag.id).toArray();
-                const promptCount = promptTagRelations.length;
+                const promptIds = promptTagRelations.map(pt => pt.promptId);
+                const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
+                const promptCount = latestPrompts.length;
 
                 const li = document.createElement('li');
                 li.classList.add('mb-2', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1');
