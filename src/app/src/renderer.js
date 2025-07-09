@@ -7,10 +7,10 @@ async function initializeDatabase() {
     try {
         dataDir = await window.electronAPI.getDataDir();
         console.log('Using data directory:', dataDir);
-        
+
         // Use Dexie with a specific name that will be stored in the userData directory
         db = new Dexie('AIPromptManagerDB');
-        
+
         db.version(4).stores({
             // Explicitly index isLatest and parentId to support queries
             prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Failed to initialize database');
         return;
     }
-    
+
     // --- Tag Input Logic ---
     const tagInput = document.getElementById('prompt-tags');
     const tagSuggestions = document.getElementById('tag-suggestions');
@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Tag Management Functions ---
     let currentPromptTags = new Set();
     let currentEditTags = new Set();
-    
+
     async function setupTagInput(inputElement, suggestionsElement, containerElement, tagSet) {
         inputElement.addEventListener('input', async (e) => {
             const query = e.target.value.trim();
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             const matchedTags = await db.tags.where('fullPath').startsWithIgnoreCase(query).limit(10).toArray();
-            
+
             // Get counts for each matched tag (only latest versions)
             const tagsWithCounts = await Promise.all(matchedTags.map(async (tag) => {
                 const promptTagRelations = await db.promptTags.where('tagId').equals(tag.id).toArray();
@@ -72,8 +72,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const promptCount = latestPrompts.length;
                 return { ...tag, promptCount };
             }));
-            
-            suggestionsElement.innerHTML = tagsWithCounts.map(tag => 
+
+            suggestionsElement.innerHTML = tagsWithCounts.map(tag =>
                 `<li class="p-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600" data-tag-path="${tag.fullPath}">${tag.fullPath} <span class="text-xs text-gray-500 dark:text-gray-400">(${tag.promptCount})</span></li>`
             ).join('');
             suggestionsElement.classList.toggle('hidden', matchedTags.length === 0);
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
         });
-        
+
         // Hide suggestions when clicking outside
         document.addEventListener('click', (e) => {
             if (!inputElement.contains(e.target) && !suggestionsElement.contains(e.target)) {
@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function addTagToContainer(tagPath, container, tagSet) {
         if (tagSet.has(tagPath)) return; // Prevent duplicates
-        
+
         tagSet.add(tagPath);
         const tagElement = document.createElement('span');
         tagElement.className = 'inline-flex items-center bg-blue-100 text-blue-800 text-sm font-medium mr-2 mb-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300';
@@ -128,14 +128,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.removeTag = function(tagPath, buttonElement) {
         const tagElement = buttonElement.parentElement;
         const container = tagElement.parentElement;
-        
+
         // Determine which tag set to update
         if (container.id === 'selected-tags') {
             currentPromptTags.delete(tagPath);
         } else if (container.id === 'edit-selected-tags') {
             currentEditTags.delete(tagPath);
         }
-        
+
         tagElement.remove();
     };
 
@@ -153,11 +153,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const parts = tagPath.split('/');
         let currentPath = '';
         let parentId = null;
-        
+
         for (let i = 0; i < parts.length; i++) {
             const part = parts[i].trim();
             currentPath += (i > 0 ? '/' : '') + part;
-            
+
             const existingPart = await db.tags.where('fullPath').equals(currentPath).first();
             if (existingPart) {
                 parentId = existingPart.id;
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 parentId = newTag;
             }
         }
-        
+
         return await db.tags.get(parentId);
     }
     // --- Element Selectors ---
@@ -248,45 +248,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             const allTags = await db.tags.toArray();
             const hasChildren = allTags.some(t => t.parentId === tagId);
             const promptTagRelations = await db.promptTags.where('tagId').equals(tagId).toArray();
-            
+
             // Debug: Let's see what's actually in the database
             console.log(`Debug: Attempting to delete tag "${tagPath}" (ID: ${tagId})`);
             console.log('All promptTag relations for this tag:', promptTagRelations);
-            
+
             // Check which of these relations point to latest prompts
             if (promptTagRelations.length > 0) {
                 const promptIds = promptTagRelations.map(pt => pt.promptId);
                 const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
                 console.log('Latest prompts using this tag:', latestPrompts);
-                
+
                 if (latestPrompts.length > 0) {
                     alert(`Cannot delete tag: it is still in use by ${latestPrompts.length} current prompt(s)`);
                     return;
                 }
-                
+
                 // If we get here, the tag is only used by old versions - clean them up
                 console.log('Tag only used by old versions, cleaning up orphaned relationships...');
                 await db.promptTags.where('tagId').equals(tagId).delete();
             }
-            
+
             if (hasChildren) {
                 alert('Cannot delete tag: it has child tags');
                 return;
             }
-            
+
             // Confirm deletion
             if (!confirm(`Are you sure you want to delete the tag "${tagPath}"?\n\nThis action cannot be undone.`)) {
                 return;
             }
-            
+
             // Safe to delete - remove from database
             await db.tags.delete(tagId);
-            
+
             // Refresh the tag tree
             await renderTagTree();
-            
+
             console.log(`Tag "${tagPath}" deleted successfully`);
-            
+
         } catch (error) {
             console.error('Error deleting tag:', error);
             alert('Error deleting tag. Please try again.');
@@ -297,22 +297,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function editTagName(tagId, currentName, currentFullPath) {
         try {
             console.log(`Starting edit for tag ID: ${tagId}, name: "${currentName}", path: "${currentFullPath}"`);
-            
+
             // Show edit modal instead of prompt
             const newName = await showEditTagModal(currentName);
             if (!newName || newName.trim() === '') {
                 console.log('User cancelled or entered empty name');
                 return; // User cancelled or entered empty name
             }
-            
+
             const trimmedNewName = newName.trim();
             if (trimmedNewName === currentName) {
                 console.log('No change in name');
                 return; // No change
             }
-            
+
             console.log(`New name: "${trimmedNewName}"`);
-            
+
             // Get the tag to edit
             const tagToEdit = await db.tags.get(tagId);
             if (!tagToEdit) {
@@ -320,9 +320,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert('Tag not found');
                 return;
             }
-            
+
             console.log('Tag found:', tagToEdit);
-            
+
             // Calculate new full path
             let newFullPath;
             if (tagToEdit.parentId) {
@@ -336,9 +336,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 newFullPath = trimmedNewName;
             }
-            
+
             console.log(`New full path: "${newFullPath}"`);
-            
+
             // Check for duplicate full path
             const existingTag = await db.tags.where('fullPath').equals(newFullPath).first();
             if (existingTag && existingTag.id !== tagId) {
@@ -346,46 +346,46 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert(`A tag with the path "${newFullPath}" already exists. Please choose a different name.`);
                 return;
             }
-            
+
             console.log('No duplicates found, proceeding with update');
-            
+
             // Update the tag name and fullPath
             await db.tags.update(tagId, {
                 name: trimmedNewName,
                 fullPath: newFullPath
             });
-            
+
             console.log('Tag updated successfully');
-            
+
             // Recursively update all descendant tags' fullPaths
             await updateDescendantPaths(tagId, newFullPath);
-            
+
             console.log('Descendant paths updated');
-            
+
             // Refresh the tag tree to show changes
             await renderTagTree();
-            
+
             console.log(`Tag renamed from "${currentFullPath}" to "${newFullPath}"`);
-            
+
         } catch (error) {
             console.error('Detailed error editing tag name:', error);
             alert(`Error editing tag name: ${error.message}. Check console for details.`);
         }
     }
-    
+
     // --- Helper function to update descendant tag paths ---
     async function updateDescendantPaths(parentTagId, newParentPath) {
         try {
             // Get all direct children of this tag
             const childTags = await db.tags.where('parentId').equals(parentTagId).toArray();
-            
+
             for (const childTag of childTags) {
                 // Update child's fullPath
                 const newChildPath = `${newParentPath}/${childTag.name}`;
                 await db.tags.update(childTag.id, {
                     fullPath: newChildPath
                 });
-                
+
                 // Recursively update this child's descendants
                 await updateDescendantPaths(childTag.id, newChildPath);
             }
@@ -400,48 +400,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Create modal overlay
             const overlay = document.createElement('div');
             overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-            
+
             // Create modal content
             const modal = document.createElement('div');
             modal.className = 'bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-96';
             modal.innerHTML = `
                 <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Edit Tag Name</h3>
-                <input type="text" id="edit-tag-input" value="${currentName}" 
-                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded mb-4 
+                <input type="text" id="edit-tag-input" value="${currentName}"
+                       class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded mb-4
                               bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 <div class="flex justify-end space-x-2">
                     <button id="cancel-edit-tag" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500">Cancel</button>
                     <button id="save-edit-tag" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
                 </div>
             `;
-            
+
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
-            
+
             // Focus and select the input
             const input = document.getElementById('edit-tag-input');
             input.focus();
             input.select();
-            
+
             // Handle save
             const saveBtn = document.getElementById('save-edit-tag');
             const cancelBtn = document.getElementById('cancel-edit-tag');
-            
+
             const cleanup = () => {
                 document.body.removeChild(overlay);
             };
-            
+
             saveBtn.onclick = () => {
                 const newName = input.value.trim();
                 cleanup();
                 resolve(newName);
             };
-            
+
             cancelBtn.onclick = () => {
                 cleanup();
                 resolve(null);
             };
-            
+
             // Handle Enter key
             input.onkeydown = (e) => {
                 if (e.key === 'Enter') {
@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     resolve(null);
                 }
             };
-            
+
             // Handle click outside modal
             overlay.onclick = (e) => {
                 if (e.target === overlay) {
@@ -473,12 +473,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const getAllDescendantTags = (tags, parentId) => {
             const descendants = [];
             const children = tags.filter(tag => tag.parentId === parentId);
-            
+
             for (const child of children) {
                 descendants.push(child);
                 descendants.push(...getAllDescendantTags(tags, child.id));
             }
-            
+
             return descendants;
         };
 
@@ -489,12 +489,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tags.find(t => t.id === tagId),
                 ...getAllDescendantTags(tags, tagId)
             ].filter(Boolean);
-            
+
             // Get all prompt IDs that have any of these tags
             const allTagIds = allRelevantTags.map(t => t.id);
             const promptTagRelations = await db.promptTags.where('tagId').anyOf(allTagIds).toArray();
             const promptIds = [...new Set(promptTagRelations.map(pt => pt.promptId))]; // Remove duplicates
-            
+
             // Filter to only latest versions
             const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
             return latestPrompts.length;
@@ -510,26 +510,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             for (const tag of filteredTags) {
                 // Get rollup count of unique prompts in this tag's entire subtree
                 const promptCount = await getTagTreePromptCount(tags, tag.id);
-                
+
                 // Check if this tag has children
                 const hasChildren = tags.some(t => t.parentId === tag.id);
-                
+
                 // Show delete button if tag has no children AND count is 0
                 const showDelete = !hasChildren && promptCount === 0;
 
                 const li = document.createElement('li');
                 li.classList.add('mb-2', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1', 'group');
-                
+
                 // Create a wrapper div for the tag content and delete button
                 const tagWrapper = document.createElement('div');
                 tagWrapper.classList.add('flex', 'items-center', 'justify-between');
-                
+
                 const tagContent = document.createElement('span');
                 tagContent.innerHTML = `${tag.name} <span class="text-xs text-gray-500 dark:text-gray-400">(${promptCount})</span>`;
                 tagContent.setAttribute('data-tag-path', tag.fullPath);
-                
+                tagContent.setAttribute('data-tag-id', tag.id);
+
+                // Make only child nodes (leaf nodes) draggable
+                if (!hasChildren) {
+                    tagContent.draggable = true;
+                    tagContent.classList.add('draggable-tag');
+                    tagContent.style.cursor = 'grab';
+                }
+
                 tagWrapper.appendChild(tagContent);
-                
+
                 // Add edit button (hidden by default, shown on hover)
                 const editBtn = document.createElement('button');
                 editBtn.innerHTML = '&#9998;'; // Pencil icon
@@ -552,7 +560,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     };
                     tagWrapper.appendChild(deleteBtn);
                 }
-                
+
                 li.appendChild(tagWrapper);
 
                 li.addEventListener('click', async (e) => {
@@ -582,43 +590,182 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // --- Drag and Drop Functionality ---
+    let draggedTagPath = null;
+    let draggedTagId = null;
+
+    // Add drag event listeners to the document
+    document.addEventListener('dragstart', (e) => {
+        if (e.target.classList.contains('draggable-tag')) {
+            draggedTagPath = e.target.getAttribute('data-tag-path');
+            draggedTagId = e.target.getAttribute('data-tag-id');
+
+            // Create drag image with tag path
+            const dragImage = document.createElement('div');
+            dragImage.className = 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 px-3 py-2 rounded-lg shadow-lg border border-blue-300 dark:border-blue-700';
+            dragImage.style.position = 'absolute';
+            dragImage.style.top = '-1000px';
+            dragImage.textContent = draggedTagPath;
+            document.body.appendChild(dragImage);
+
+            e.dataTransfer.setDragImage(dragImage, 0, 0);
+            e.dataTransfer.effectAllowed = 'copy';
+
+            // Clean up drag image after a short delay
+            setTimeout(() => {
+                if (document.body.contains(dragImage)) {
+                    document.body.removeChild(dragImage);
+                }
+            }, 0);
+
+            // Change cursor style
+            e.target.style.cursor = 'grabbing';
+        }
+    });
+
+    document.addEventListener('dragend', (e) => {
+        if (e.target.classList.contains('draggable-tag')) {
+            e.target.style.cursor = 'grab';
+            draggedTagPath = null;
+            draggedTagId = null;
+        }
+    });
+
+    // Add drop functionality to prompt cards
+    document.addEventListener('dragover', (e) => {
+        const promptCard = e.target.closest('.bg-white');
+        if (promptCard && promptCard.classList.contains('dark:bg-gray-800') && draggedTagPath) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+
+            // Add visual feedback
+            promptCard.classList.add('ring-2', 'ring-green-500', 'ring-opacity-50');
+        }
+    });
+
+    document.addEventListener('dragleave', (e) => {
+        const promptCard = e.target.closest('.bg-white');
+        if (promptCard && promptCard.classList.contains('dark:bg-gray-800')) {
+            // Only remove highlight if we're actually leaving the card
+            const rect = promptCard.getBoundingClientRect();
+            const x = e.clientX;
+            const y = e.clientY;
+
+            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                promptCard.classList.remove('ring-2', 'ring-green-500', 'ring-opacity-50');
+            }
+        }
+    });
+
+    document.addEventListener('drop', async (e) => {
+        const promptCard = e.target.closest('.bg-white');
+        if (promptCard && promptCard.classList.contains('dark:bg-gray-800') && draggedTagPath) {
+            e.preventDefault();
+
+            // Remove visual feedback
+            promptCard.classList.remove('ring-2', 'ring-green-500', 'ring-opacity-50');
+
+            // Get prompt ID from the card
+            const editBtn = promptCard.querySelector('.edit-prompt-btn');
+            if (editBtn) {
+                const promptId = Number(editBtn.dataset.id);
+
+                try {
+                    // Check if tag is already assigned to this prompt
+                    const existingRelation = await db.promptTags
+                        .where('promptId').equals(promptId)
+                        .and(pt => pt.tagId === Number(draggedTagId))
+                        .first();
+
+                    if (existingRelation) {
+                        // Show brief visual feedback for duplicate
+                        showTagAssignmentFeedback(promptCard, 'Tag already assigned', 'warning');
+                        return;
+                    }
+
+                    // Create or get the tag (should already exist)
+                    const tag = await createOrGetTag(draggedTagPath);
+
+                    // Add the tag-prompt relationship
+                    await db.promptTags.add({
+                        promptId: promptId,
+                        tagId: tag.id
+                    });
+
+                    // Show success feedback
+                    showTagAssignmentFeedback(promptCard, 'Tag assigned successfully', 'success');
+
+                    // Refresh the UI
+                    await renderPrompts();
+                    await renderTagTree();
+
+                } catch (error) {
+                    console.error('Error assigning tag to prompt:', error);
+                    showTagAssignmentFeedback(promptCard, 'Error assigning tag', 'error');
+                }
+            }
+        }
+    });
+
+    // Helper function to show tag assignment feedback
+    function showTagAssignmentFeedback(promptCard, message, type) {
+        const feedback = document.createElement('div');
+        feedback.className = `absolute top-2 right-2 px-3 py-1 rounded-lg text-sm font-medium z-50 ${
+            type === 'success' ? 'bg-green-100 text-green-800 border border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700' :
+            type === 'warning' ? 'bg-yellow-100 text-yellow-800 border border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700' :
+            'bg-red-100 text-red-800 border border-red-300 dark:bg-red-900 dark:text-red-300 dark:border-red-700'
+        }`;
+        feedback.textContent = message;
+
+        // Position relative to the prompt card
+        promptCard.style.position = 'relative';
+        promptCard.appendChild(feedback);
+
+        // Remove feedback after 2 seconds
+        setTimeout(() => {
+            if (feedback.parentNode) {
+                feedback.parentNode.removeChild(feedback);
+            }
+        }, 2000);
+    }
+
     // --- Render Prompts by Tag ---
     async function renderPromptsByTag(tagPath) {
         console.log('Filtering by tag path:', tagPath);
-        
+
         // Get all tags that match this path pattern (exact match or children)
         const allTags = await db.tags.toArray();
         const matchingTags = allTags.filter(tag => {
             // Exact match or starts with the path followed by a slash
             return tag.fullPath === tagPath || tag.fullPath.startsWith(tagPath + '/');
         });
-        
+
         console.log('Matching tags:', matchingTags.map(t => t.fullPath));
-        
+
         if (matchingTags.length === 0) {
             console.error('No tags found starting with:', tagPath);
             promptGrid.innerHTML = `<p class="text-gray-500">No prompts found with tag "${tagPath}".</p>`;
             return;
         }
-        
+
         // Get all prompt IDs that have any of these tags
         const tagIds = matchingTags.map(tag => tag.id);
         const promptTagRelations = await db.promptTags.where('tagId').anyOf(tagIds).toArray();
         const promptIdsArray = [...new Set(promptTagRelations.map(pt => pt.promptId))];
-        
+
         console.log('Found prompt IDs:', promptIdsArray);
-        
+
         if (promptIdsArray.length === 0) {
             promptGrid.innerHTML = `<p class="text-gray-500">No prompts found with tag "${tagPath}".</p>`;
             return;
         }
-        
+
         const taggedPrompts = await db.prompts.where('id').anyOf(promptIdsArray).and(p => p.isLatest === 1).toArray();
         await renderPrompts(taggedPrompts);
-        
+
         console.log(`Found ${taggedPrompts.length} prompts for tag pattern "${tagPath}"`);
     }
-    
+
     // --- Render Untagged Prompts ---
     async function renderUntaggedPrompts() {
         const allPrompts = await db.prompts.where('isLatest').equals(1).toArray();
@@ -626,11 +773,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const untaggedPrompts = allPrompts.filter(p => !taggedPromptIds.includes(p.id));
         await renderPrompts(untaggedPrompts);
     }
-    
+
     // --- Navigation Handlers ---
     const allPromptsLink = document.getElementById('all-prompts-link');
     const untaggedPromptsLink = document.getElementById('untagged-prompts-link');
-    
+
     allPromptsLink.addEventListener('click', async (e) => {
         e.preventDefault();
         // Clear tag tree selection
@@ -639,18 +786,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         searchTerm = '';
         searchInput.value = '';
         await renderPrompts();
-        
+
         // Update active nav
         document.querySelectorAll('nav a').forEach(link => link.classList.remove('active'));
         allPromptsLink.classList.add('active');
     });
-    
+
     untaggedPromptsLink.addEventListener('click', async (e) => {
         e.preventDefault();
         // Clear tag tree selection
         document.querySelectorAll('#tag-tree li').forEach(el => el.classList.remove('bg-gray-300', 'dark:bg-gray-800'));
         await renderUntaggedPrompts();
-        
+
         // Update active nav
         document.querySelectorAll('nav a').forEach(link => link.classList.remove('active'));
         untaggedPromptsLink.classList.add('active');
@@ -676,7 +823,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 lastUsedAt: null,
                 timesUsed: 0
             });
-            
+
             // Handle tags
             for (const tagPath of currentPromptTags) {
                 const tag = await createOrGetTag(tagPath);
@@ -685,7 +832,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     tagId: tag.id
                 });
             }
-            
+
             console.log('Prompt saved successfully.');
             currentPromptTags.clear();
             selectedTagsContainer.innerHTML = '';
@@ -730,7 +877,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 lastUsedAt: originalPrompt.lastUsedAt,
                 timesUsed: originalPrompt.timesUsed
             });
-            
+
             // Handle tags for the new version
             for (const tagPath of currentEditTags) {
                 const tag = await createOrGetTag(tagPath);
@@ -779,7 +926,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .where('parentId').equals(parentId)
                 .or('id').equals(parentId)
                 .count();
-                
+
             // Get tags for this prompt
             const promptTags = await db.promptTags.where('promptId').equals(prompt.id).toArray();
             const tags = [];
@@ -787,8 +934,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const tag = await db.tags.get(pt.tagId);
                 if (tag) tags.push(tag);
             }
-            
-            const tagsHtml = tags.length > 0 ? 
+
+            const tagsHtml = tags.length > 0 ?
                 `<div class="mb-2">
                     ${tags.map(tag => `<span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-1 mb-1 dark:bg-blue-900 dark:text-blue-300">${tag.fullPath}</span>`).join('')}
                 </div>` : '';
@@ -837,7 +984,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('edit-prompt-title').value = prompt.title;
                 document.getElementById('edit-prompt-description').value = prompt.description || '';
                 document.getElementById('edit-prompt-text').value = prompt.text;
-                
+
                 // Load existing tags
                 currentEditTags.clear();
                 editSelectedTagsContainer.innerHTML = '';
@@ -848,7 +995,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         addTagToContainer(tag.fullPath, editSelectedTagsContainer, currentEditTags);
                     }
                 }
-                
+
                 showModal(editPromptModal);
             }
         } else if (target.classList.contains('copy-prompt-btn')) {
@@ -918,14 +1065,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Theme Toggle ---
     const themeToggleBtn = document.getElementById('toggle-theme');
-    
+
     // Apply previous theme mode
     if (localStorage.getItem('darkMode') === 'enabled') {
         document.documentElement.classList.add('dark');
         document.body.classList.add('dark');
         console.log('Dark mode enabled from localStorage');
     }
-    
+
     themeToggleBtn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         document.body.classList.toggle('dark');
@@ -951,12 +1098,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 try {
                     const text = await file.text();
                     const prompts = JSON.parse(text);
-                    
+
                     // Import prompts to database
                     for (const prompt of prompts) {
                         await db.prompts.add(prompt);
                     }
-                    
+
                     alert(`Successfully imported ${prompts.length} prompts!`);
                     await renderPrompts();
                 } catch (error) {
@@ -1011,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     sortOptions.addEventListener('change', async (e) => {
         const sortBy = e.target.value;
         let sortedPrompts;
-        
+
         if (sortBy === 'title') {
             sortedPrompts = await db.prompts.where('isLatest').equals(1).sortBy('title');
         } else if (sortBy === 'timesUsed') {
@@ -1022,7 +1169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Default to createdAt
             sortedPrompts = await db.prompts.where('isLatest').equals(1).reverse().sortBy('createdAt');
         }
-        
+
         renderPrompts(sortedPrompts);
     });
 
