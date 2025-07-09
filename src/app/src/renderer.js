@@ -1499,6 +1499,18 @@ function setupOpenRouterModelRefresh() {
             }
         });
     }
+
+    // Refresh when "free only" checkbox is toggled
+    const freeOnlyCheckbox = document.getElementById('openrouter-free-only');
+    if (freeOnlyCheckbox) {
+        freeOnlyCheckbox.addEventListener('change', async () => {
+            const apiKeyInput = document.getElementById('openrouter-api-key');
+            const apiKey = apiKeyInput.value.trim();
+            if (apiKey) {
+                await loadOpenRouterModels();
+            }
+        });
+    }
 }
 
 // Load available OpenRouter models dynamically
@@ -1526,7 +1538,22 @@ async function loadOpenRouterModels() {
         const result = await window.electronAPI.ai.getOpenRouterModels(apiKey);
 
         if (result.success && result.models.length > 0) {
-            const models = result.models;
+            let models = result.models;
+
+            // Check if "free only" filter is enabled
+            const freeOnlyCheckbox = document.getElementById('openrouter-free-only');
+            const showFreeOnly = freeOnlyCheckbox && freeOnlyCheckbox.checked;
+
+            // Filter models if "free only" is enabled
+            if (showFreeOnly) {
+                models = models.filter(model => {
+                    // Check if model is free (pricing.prompt === "0" or pricing.completion === "0")
+                    return model.pricing && (
+                        (model.pricing.prompt === "0" || model.pricing.prompt === 0) ||
+                        (model.pricing.completion === "0" || model.pricing.completion === 0)
+                    );
+                });
+            }
 
             // Clear the select and populate with available models
             modelSelect.innerHTML = '';
@@ -1534,7 +1561,10 @@ async function loadOpenRouterModels() {
             models.forEach(model => {
                 const option = document.createElement('option');
                 option.value = model.id;
-                option.textContent = `${model.name || model.id}`;
+                // Show pricing info in the model name for better UX
+                const pricingInfo = model.pricing && !showFreeOnly ?
+                    ` ($${model.pricing.prompt}/$${model.pricing.completion})` : '';
+                option.textContent = `${model.name || model.id}${pricingInfo}`;
                 if (model.id === currentModel) {
                     option.selected = true;
                 }
