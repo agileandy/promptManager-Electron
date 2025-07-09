@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveConfig: (config) => ipcRenderer.invoke('ai-save-config', config),
     getConfig: () => ipcRenderer.invoke('ai-get-config'),
     testProvider: (providerName, providerConfig) => ipcRenderer.invoke('ai-test-provider', providerName, providerConfig),
-    getOllamaModels: (endpoint) => ipcRenderer.invoke('ai-get-ollama-models', endpoint)
+    getOllamaModels: (endpoint) => ipcRenderer.invoke('ai-get-ollama-models', endpoint),
+    getOpenRouterModels: (apiKey) => ipcRenderer.invoke('ai-get-openrouter-models', apiKey)
   }
 });

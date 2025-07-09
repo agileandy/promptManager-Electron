@@ -1476,8 +1476,100 @@ function initializeAISettingsModal() {
 
     // Setup Ollama model refresh functionality
     setupOllamaModelRefresh();
+// Setup OpenRouter model refresh functionality
+    setupOpenRouterModelRefresh();
 }
 
+// Setup OpenRouter model refresh functionality
+function setupOpenRouterModelRefresh() {
+    const refreshBtn = document.getElementById('refresh-openrouter-models');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', async () => {
+            await loadOpenRouterModels();
+        });
+    }
+
+    // Also refresh when API key changes
+    const apiKeyInput = document.getElementById('openrouter-api-key');
+    if (apiKeyInput) {
+        apiKeyInput.addEventListener('blur', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            if (apiKey) {
+                await loadOpenRouterModels();
+            }
+        });
+    }
+}
+
+// Load available OpenRouter models dynamically
+async function loadOpenRouterModels() {
+    try {
+        const apiKeyInput = document.getElementById('openrouter-api-key');
+        const apiKey = apiKeyInput.value.trim();
+        const currentModel = document.getElementById('openrouter-model').value;
+        const modelSelect = document.getElementById('openrouter-model');
+        const refreshBtn = document.getElementById('refresh-openrouter-models');
+
+        if (!apiKey) {
+            console.warn('OpenRouter API key not provided, cannot fetch models');
+            return;
+        }
+
+        // Show loading state
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '⏳';
+            refreshBtn.classList.add('opacity-50');
+        }
+
+        // Try to fetch available models via IPC
+        const result = await window.electronAPI.ai.getOpenRouterModels(apiKey);
+
+        if (result.success && result.models.length > 0) {
+            const models = result.models;
+
+            // Clear the select and populate with available models
+            modelSelect.innerHTML = '';
+
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = `${model.name || model.id}`;
+                if (model.id === currentModel) {
+                    option.selected = true;
+                }
+                modelSelect.appendChild(option);
+            });
+
+            // If current model is not in the list, add it as the first option
+            if (!models.some(m => m.id === currentModel) && currentModel) {
+                const option = document.createElement('option');
+                option.value = currentModel;
+                option.textContent = `${currentModel} (not found)`;
+                option.selected = true;
+                modelSelect.insertBefore(option, modelSelect.firstChild);
+            }
+
+            console.log(`Loaded ${models.length} OpenRouter models`);
+        } else {
+            // No models found or error, keep current options
+            if (result.error) {
+                console.warn('Failed to fetch OpenRouter models:', result.error);
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load OpenRouter models:', error.message);
+        // Keep the current model value if fetching fails
+    } finally {
+        // Reset button state
+        const refreshBtn = document.getElementById('refresh-openrouter-models');
+        if (refreshBtn) {
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '🔄';
+            refreshBtn.classList.remove('opacity-50');
+        }
+    }
+}
 
 // Load available Ollama models dynamically
 async function loadOllamaModels() {
@@ -1564,6 +1656,10 @@ async function loadAISettings() {
 
         // Load available Ollama models dynamically
         await loadOllamaModels();
+// Load available OpenRouter models if API key is present
+        if (config.openrouter?.apiKey) {
+            await loadOpenRouterModels();
+        }
 
         console.log('AI settings loaded successfully');
     } catch (error) {

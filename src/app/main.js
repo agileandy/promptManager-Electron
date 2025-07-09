@@ -287,6 +287,22 @@ function registerAIHandlers() {
       console.error('Failed to get Ollama models:', error);
       return { success: false, error: error.message, models: [] };
     }
+// Get available OpenRouter models
+  ipcMain.handle('ai-get-openrouter-models', async (event, apiKey) => {
+    console.log('ai-get-openrouter-models handler called');
+    try {
+      const { OpenRouterProvider } = require(path.resolve(__dirname, 'src/ai/providers/OpenRouterProvider.js'));
+      const provider = new OpenRouterProvider({
+        apiKey: apiKey,
+        endpoint: 'https://openrouter.ai/api/v1/chat/completions'
+      });
+      const models = await provider.getAvailableModels();
+      return { success: true, models };
+    } catch (error) {
+      console.error('Failed to get OpenRouter models:', error);
+      return { success: false, error: error.message, models: [] };
+    }
+  });
   });
 
   console.log('All AI IPC handlers registered successfully');
