@@ -1514,6 +1514,16 @@ function initializeAISettingsModal() {
     setupOllamaModelRefresh();
 }
 
+// Add event listener to refresh Ollama models when endpoint changes
+function setupOllamaModelRefresh() {
+    const endpointInput = document.getElementById('ollama-endpoint');
+    if (endpointInput) {
+        endpointInput.addEventListener('blur', async () => {
+            await loadOllamaModels();
+        });
+    }
+}
+
 // Load AI settings from backend
 async function loadAISettings() {
     try {
@@ -1734,15 +1744,6 @@ async function testProviderConnection(provider) {
             }
         }
 
-        // Add event listener to refresh Ollama models when endpoint changes
-        function setupOllamaModelRefresh() {
-            const endpointInput = document.getElementById('ollama-endpoint');
-            if (endpointInput) {
-                endpointInput.addEventListener('blur', async () => {
-                    await loadOllamaModels();
-                });
-            }
-        }
     } catch (error) {
         console.error(`${provider} connection test failed:`, error);
 
