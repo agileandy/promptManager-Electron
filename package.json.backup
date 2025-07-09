@@ -1,8 +1,8 @@
 {
   "name": "promptmanager-electron",
   "version": "1.0.0",
-  "description": "AI Prompt Manager",
-  "main": "src/app/main.js",
+  "description": "<<<<<<< HEAD # AI Prompt Manager",
+  "main": "index.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",

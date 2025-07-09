@@ -1,26 +1,46 @@
 // Initialize the database
-const db = new Dexie('AIPromptManagerDB');
+let db;
+let dataDir;
 
-db.version(4).stores({
-    // Explicitly index isLatest and parentId to support queries
-    prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
-    folders: '++id, name, parentId',
-    tags: '++id, name, fullPath, parentId, level', // Added fullPath, parentId, level for hierarchy
-    promptTags: '++id, promptId, tagId' // Join table for many-to-many relationship
-});
+// Initialize database with common data directory
+async function initializeDatabase() {
+    try {
+        dataDir = await window.electronAPI.getDataDir();
+        console.log('Using data directory:', dataDir);
+        
+        // Use Dexie with a specific name that will be stored in the userData directory
+        db = new Dexie('AIPromptManagerDB');
+        
+        db.version(4).stores({
+            // Explicitly index isLatest and parentId to support queries
+            prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
+            folders: '++id, name, parentId',
+            tags: '++id, name, fullPath, parentId, level', // Added fullPath, parentId, level for hierarchy
+            promptTags: '++id, promptId, tagId' // Join table for many-to-many relationship
+        });
 
-db.open().catch(async function (e) {
-    console.error('Dexie open failed:', e);
-    if (e.name === 'SchemaError' || e.name === 'VersionError' || e.name === 'InvalidStateError') {
-        console.warn('Deleting old/corrupt IndexedDB and reloading…');
-        await Dexie.delete(db.name);
-        location.reload();
+        await db.open();
+        console.log('Database initialized successfully in:', dataDir);
+        return true;
+    } catch (e) {
+        console.error('Dexie open failed:', e);
+        if (e.name === 'SchemaError' || e.name === 'VersionError' || e.name === 'InvalidStateError') {
+            console.warn('Deleting old/corrupt IndexedDB and reloading…');
+            await Dexie.delete('AIPromptManagerDB');
+            location.reload();
+        }
+        return false;
     }
-});
+}
 
-console.log('Database initialized.');
-
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize database first
+    const dbInitialized = await initializeDatabase();
+    if (!dbInitialized) {
+        console.error('Failed to initialize database');
+        return;
+    }
+    
     // --- Tag Input Logic ---
     const tagInput = document.getElementById('prompt-tags');
     const tagSuggestions = document.getElementById('tag-suggestions');
@@ -660,6 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const helpBtn = document.getElementById('help-btn');
     const helpModal = document.getElementById('help-modal');
     const closeHelpBtn = document.getElementById('close-help-btn');
+    const viewDatabaseBtn = document.getElementById('view-database-btn');
 
     helpBtn.addEventListener('click', () => {
         showModal(helpModal);
@@ -667,6 +688,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     closeHelpBtn.addEventListener('click', () => {
         hideModal(helpModal);
+    });
+
+    viewDatabaseBtn.addEventListener('click', async () => {
+        await window.electronAPI.openDatabaseViewer();
     });
 
     // --- Sort Options ---

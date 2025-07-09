@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Database Viewer</title>
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .table { margin: 20px 0; }
+        .table h3 { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 5px; }
+        .data { background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007acc; }
+        .empty { color: #999; font-style: italic; padding: 10px; }
+        .count { color: #666; font-weight: bold; }
+        pre { white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Database Content Viewer</h1>
+            <p>Current database structure and content</p>
+            <div id="dataPath" class="status success"></div>
+        </div>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const db = new Dexie('AIPromptManagerDB');
+        
+        db.version(4).stores({
+            prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
+            folders: '++id, name, parentId',
+            tags: '++id, name, fullPath, parentId, level',
+            promptTags: '++id, promptId, tagId'
+        });
+
+        async function viewDatabase() {
+            const output = document.getElementById('output');
+            const dataPath = document.getElementById('dataPath');
+            
+            // Show data path
+            const userData = await window.electronAPI.getDataDir();
+            dataPath.innerHTML = `Data Location: ${userData}/IndexedDB`;
+            
+            try {
+                await db.open();
+                output.innerHTML += '<div class="status success">Database opened successfully</div>';
+                
+                const tables = ['prompts', 'folders', 'tags', 'promptTags'];
+                
+                for (const tableName of tables) {
+                    const table = db[tableName];
+                    const count = await table.count();
+                    const data = await table.toArray();
+                    
+                    output.innerHTML += `
+                        <div class="table">
+                            <h3>${tableName} (${count} records)</h3>
+                            ${count === 0 ? 
+                                '<div class="empty">No data found</div>' : 
+                                `<div class="data"><pre>${JSON.stringify(data, null, 2)}</pre></div>`
+                            }
+                        </div>
+                    `;
+                }
+                
+            } catch (error) {
+                output.innerHTML += `<div class="status error">Error: ${error.message}</div>`;
+                console.error('Database error:', error);
+            }
+        }
+
+        window.addEventListener('load', viewDatabase);
+    </script>
+</body>
+</html>

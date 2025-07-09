@@ -1,5 +1,10 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
+
+// Use Electron's default userData directory (no custom path)
+// This will automatically use: ~/Library/Application Support/promptmanager-electron
 
 function createWindow () {
   // Create the browser window.
@@ -15,11 +20,34 @@ function createWindow () {
   });
 
   // and load the index.html of the app.
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+  // Restore default Electron menu
 
   // Open the DevTools.
   // mainWindow.webContents.openDevTools();
 }
+
+// Database viewer function for IPC
+ipcMain.handle('open-database-viewer', () => {
+  const viewerWindow = new BrowserWindow({
+    width: 1000,
+    height: 800,
+    title: 'Database Viewer',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  viewerWindow.loadFile(path.join(__dirname, 'db_viewer_template.html'));
+});
+
+// IPC handlers for data directory access
+ipcMain.handle('get-data-dir', () => {
+  return app.getPath('userData');
+});
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
