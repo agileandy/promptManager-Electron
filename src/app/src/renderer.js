@@ -278,9 +278,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!aiService) return;
 
         const providers = aiService.getAvailableProviders();
-        const providerOptions = providers.map(provider =>
-            `<option value="${provider}">${aiConfig.providers[provider]?.name || provider}</option>`
-        ).join('');
+        const providerOptions = providers.map(provider => {
+            // Safe access to aiConfig with fallback
+            const providerName = aiConfig?.providers?.[provider]?.name || provider;
+            return `<option value="${provider}">${providerName}</option>`;
+        }).join('');
 
         // Populate all provider dropdowns
         [aiGenerateProvider, aiOptimizeProvider, editAiGenerateProvider, editAiOptimizeProvider].forEach(select => {
