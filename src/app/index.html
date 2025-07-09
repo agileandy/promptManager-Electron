@@ -48,28 +48,28 @@
 
         <!-- Main Content -->
         <main class="flex-1 ml-64 relative">
-            <!-- Header with branding and theme toggle -->
-            <header class="fixed top-0 right-0 left-64 bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex justify-between items-center p-6 pb-4 shadow-sm border-b border-gray-200 dark:border-gray-700 z-10">
-                <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2">
-                        <span class="text-2xl">📝</span>
-                        <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI Prompt Manager</h1>
+            <!-- Fixed Header Area -->
+            <div class="fixed top-0 right-0 left-64 bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 z-10">
+                <!-- Header with branding and theme toggle -->
+                <header class="flex justify-between items-center p-6 pb-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-2xl">📝</span>
+                            <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">AI Prompt Manager</h1>
+                        </div>
                     </div>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <button id="toggle-theme" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg px-3 py-2 transition-colors" title="Toggle Theme">
-                        <span class="text-lg">🌓</span>
-                    </button>
-                    <button id="help-btn" class="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-3 py-2 transition-colors" title="Help">
-                        <span class="text-lg">❓</span>
-                    </button>
-                </div>
-            </header>
+                    <div class="flex items-center space-x-3">
+                        <button id="toggle-theme" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg px-3 py-2 transition-colors" title="Toggle Theme">
+                            <span class="text-lg">🌓</span>
+                        </button>
+                        <button id="help-btn" class="bg-blue-500 hover:bg-blue-600 text-white rounded-lg px-3 py-2 transition-colors" title="Help">
+                            <span class="text-lg">❓</span>
+                        </button>
+                    </div>
+                </header>
 
-            <!-- Scrollable Content Area -->
-            <div class="pt-20 p-6 h-screen overflow-y-auto">
                 <!-- Controls Bar -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-4 mb-6 backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-4 mx-6 mb-4 backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
                 <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                     <!-- Left side: Search and Sort -->
                     <div class="flex flex-col sm:flex-row gap-3 flex-1">
@@ -96,7 +96,10 @@
                     </div>
                 </div>
                 </div>
+            </div>
 
+            <!-- Scrollable Content Area -->
+            <div class="pt-44 p-6 h-screen overflow-y-auto">
                 <!-- Prompt Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-6">
                     <!-- Prompt Tiles will be dynamically inserted here -->
