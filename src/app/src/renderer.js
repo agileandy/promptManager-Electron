@@ -1511,21 +1511,77 @@ function initializeAISettingsModal() {
     testOllamaBtn.addEventListener('click', async () => {
         await testProviderConnection('ollama');
     });
+// Add event listener to refresh Ollama models when endpoint changes
+    function setupOllamaModelRefresh() {
+        const endpointInput = document.getElementById('ollama-endpoint');
+        if (endpointInput) {
+            endpointInput.addEventListener('blur', async () => {
+                await loadOllamaModels();
+            });
+        }
+    }
 
     // Setup Ollama model refresh functionality
     setupOllamaModelRefresh();
 }
 
-// Add event listener to refresh Ollama models when endpoint changes
-function setupOllamaModelRefresh() {
-    const endpointInput = document.getElementById('ollama-endpoint');
-    if (endpointInput) {
-        endpointInput.addEventListener('blur', async () => {
-            await loadOllamaModels();
-        });
+
+// Load available Ollama models dynamically
+async function loadOllamaModels() {
+    try {
+        const ollamaEndpoint = document.getElementById('ollama-endpoint').value.trim() || 'http://localhost:11434';
+        const currentModel = document.getElementById('ollama-model').value;
+        const modelSelect = document.getElementById('ollama-model');
+
+        // Clear existing options except the current one
+        modelSelect.innerHTML = `<option value="${currentModel}">${currentModel}</option>`;
+
+        // Try to fetch available models via IPC
+        const result = await window.electronAPI.ai.getOllamaModels(ollamaEndpoint);
+
+        if (result.success && result.models.length > 0) {
+            const models = result.models;
+
+            // Clear the select and populate with available models
+            modelSelect.innerHTML = '';
+
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.name;
+                option.textContent = model.name;
+                if (model.name === currentModel) {
+                    option.selected = true;
+                }
+                modelSelect.appendChild(option);
+            });
+
+            // If current model is not in the list, add it as the first option
+            if (!models.some(m => m.name === currentModel) && currentModel) {
+                const option = document.createElement('option');
+                option.value = currentModel;
+                option.textContent = `${currentModel} (not found)`;
+                option.selected = true;
+                modelSelect.insertBefore(option, modelSelect.firstChild);
+            }
+
+            console.log(`Loaded ${models.length} Ollama models`);
+        } else {
+            // No models found or error, add default option
+            const option = document.createElement('option');
+            option.value = currentModel || 'llama3.1:8b';
+            option.textContent = currentModel || 'llama3.1:8b';
+            option.selected = true;
+            modelSelect.appendChild(option);
+
+            if (result.error) {
+                console.warn('Failed to fetch Ollama models:', result.error);
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load Ollama models:', error.message);
+        // Keep the current model value if fetching fails
     }
 }
-
 // Load AI settings from backend
 async function loadAISettings() {
     try {
@@ -1689,62 +1745,6 @@ async function testProviderConnection(provider) {
             throw new Error(result.error || 'Connection test failed');
         }
 
-        // Load available Ollama models dynamically
-        async function loadOllamaModels() {
-            try {
-                const ollamaEndpoint = document.getElementById('ollama-endpoint').value.trim() || 'http://localhost:11434';
-                const currentModel = document.getElementById('ollama-model').value;
-                const modelSelect = document.getElementById('ollama-model');
-
-                // Clear existing options except the current one
-                modelSelect.innerHTML = `<option value="${currentModel}">${currentModel}</option>`;
-
-                // Try to fetch available models via IPC
-                const result = await window.electronAPI.ai.getOllamaModels(ollamaEndpoint);
-
-                if (result.success && result.models.length > 0) {
-                    const models = result.models;
-
-                    // Clear the select and populate with available models
-                    modelSelect.innerHTML = '';
-
-                    models.forEach(model => {
-                        const option = document.createElement('option');
-                        option.value = model.name;
-                        option.textContent = model.name;
-                        if (model.name === currentModel) {
-                            option.selected = true;
-                        }
-                        modelSelect.appendChild(option);
-                    });
-
-                    // If current model is not in the list, add it as the first option
-                    if (!models.some(m => m.name === currentModel) && currentModel) {
-                        const option = document.createElement('option');
-                        option.value = currentModel;
-                        option.textContent = `${currentModel} (not found)`;
-                        option.selected = true;
-                        modelSelect.insertBefore(option, modelSelect.firstChild);
-                    }
-
-                    console.log(`Loaded ${models.length} Ollama models`);
-                } else {
-                    // No models found or error, add default option
-                    const option = document.createElement('option');
-                    option.value = currentModel || 'llama3.1:8b';
-                    option.textContent = currentModel || 'llama3.1:8b';
-                    option.selected = true;
-                    modelSelect.appendChild(option);
-
-                    if (result.error) {
-                        console.warn('Failed to fetch Ollama models:', result.error);
-                    }
-                }
-            } catch (error) {
-                console.warn('Could not load Ollama models:', error.message);
-                // Keep the current model value if fetching fails
-            }
-        }
 
     } catch (error) {
         console.error(`${provider} connection test failed:`, error);
