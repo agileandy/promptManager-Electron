@@ -2,9 +2,9 @@
  * Ollama AI Provider
  * Implements the BaseProvider interface for local Ollama API
  */
-import { BaseProvider } from './BaseProvider.js';
+const { BaseProvider } = require('./BaseProvider.js');
 
-export class OllamaProvider extends BaseProvider {
+class OllamaProvider extends BaseProvider {
     constructor(config) {
         super(config);
         // Ollama doesn't require API key
@@ -167,3 +167,4 @@ export class OllamaProvider extends BaseProvider {
         }
     }
 }
+module.exports = { OllamaProvider };

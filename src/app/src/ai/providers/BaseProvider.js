@@ -2,7 +2,7 @@
  * Base AI Provider Interface
  * Defines the contract that all AI providers must implement
  */
-export class BaseProvider {
+class BaseProvider {
     constructor(config) {
         this.config = config;
         this.name = config.name;
@@ -120,3 +120,4 @@ export class BaseProvider {
         ];
     }
 }
+module.exports = { BaseProvider };

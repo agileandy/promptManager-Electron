@@ -18,8 +18,8 @@ class AIService {
         this.defaultProvider = config.defaultProvider;
 
         // Initialize providers based on configuration
-        const { OpenRouterProvider } = await import('./providers/OpenRouterProvider.js');
-        const { OllamaProvider } = await import('./providers/OllamaProvider.js');
+        const { OpenRouterProvider } = require('./providers/OpenRouterProvider.js');
+        const { OllamaProvider } = require('./providers/OllamaProvider.js');
 
         // Register available providers
         if (config.providers.openrouter?.enabled) {
@@ -125,4 +125,5 @@ class AIService {
 }
 
 // Export singleton instance
-export const aiService = new AIService();
+const aiService = new AIService();
+module.exports = { AIService, aiService };

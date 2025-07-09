@@ -2,9 +2,9 @@
  * OpenRouter AI Provider
  * Implements the BaseProvider interface for OpenRouter API
  */
-import { BaseProvider } from './BaseProvider.js';
+const { BaseProvider } = require('./BaseProvider.js');
 
-export class OpenRouterProvider extends BaseProvider {
+class OpenRouterProvider extends BaseProvider {
     constructor(config) {
         super(config);
     }
@@ -127,3 +127,4 @@ export class OpenRouterProvider extends BaseProvider {
         }
     }
 }
+module.exports = { OpenRouterProvider };
