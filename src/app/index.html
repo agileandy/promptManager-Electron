@@ -113,21 +113,348 @@
         <!-- New Prompt Modal -->
 
         <!-- Help Modal -->
-        <div id="help-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-            <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl max-w-2xl max-h-96 overflow-y-auto">
-                <h2 class="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">📝 AI Prompt Manager Help</h2>
-                <div class="text-gray-700 dark:text-gray-300 space-y-3">
-                    <p><strong>➕ Creating Prompts:</strong> Click "New Prompt" to create a new AI prompt with title, description, and text.</p>
-                    <p><strong>🔍 Search:</strong> Use the search bar to find prompts by title, description, or content.</p>
-                    <p><strong>📊 Sorting:</strong> Use the dropdown to sort by creation date, title, usage count, or last used date.</p>
-                    <p><strong>📋 Copy Prompts:</strong> Click the copy icon to copy prompt text to clipboard and track usage.</p>
-                    <p><strong>✏️ Edit Prompts:</strong> Click the edit icon to create a new version while preserving history.</p>
-                    <p><strong>📥 Import/Export:</strong> Use Import/Export buttons to backup or share your prompts as JSON files.</p>
-                    <p><strong>🌓 Theme Toggle:</strong> Switch between light and dark modes with the theme button.</p>
-                    <p><strong>📖 Version History:</strong> Click the history icon to view all versions of a prompt.</p>
+        <div id="help-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl max-h-[90vh] w-full mx-4 flex flex-col">
+                <!-- Header -->
+                <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">📝 AI Prompt Manager Help</h2>
+                    <button id="close-help-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl">×</button>
                 </div>
-                <button id="view-database-btn" class="mt-4 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors mr-4">View Database</button>
-                <button id="close-help-btn" class="mt-6 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">Close</button>
+
+                <!-- Tab Navigation -->
+                <div class="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <button class="help-tab-btn active px-6 py-3 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400" data-tab="basics">
+                        🚀 Getting Started
+                    </button>
+                    <button class="help-tab-btn px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" data-tab="prompts">
+                        📝 Managing Prompts
+                    </button>
+                    <button class="help-tab-btn px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" data-tab="tags">
+                        🏷️ Tags & Organization
+                    </button>
+                    <button class="help-tab-btn px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" data-tab="ai">
+                        🤖 AI Features
+                    </button>
+                    <button class="help-tab-btn px-6 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" data-tab="advanced">
+                        ⚙️ Advanced
+                    </button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <!-- Getting Started Tab -->
+                    <div id="help-tab-basics" class="help-tab-content">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Welcome to AI Prompt Manager! 🎉</h3>
+                                <p class="text-gray-700 dark:text-gray-300 mb-4">Your personal AI prompt library for organizing, managing, and enhancing your AI interactions.</p>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🎯 Quick Start</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li><strong>1.</strong> Click <span class="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-sm">New Prompt</span> to create your first prompt</li>
+                                    <li><strong>2.</strong> Add a title, description, and your prompt text</li>
+                                    <li><strong>3.</strong> Use tags to organize your prompts</li>
+                                    <li><strong>4.</strong> Copy prompts to use with your favorite AI tools</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🔧 Main Features</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">📝 Prompt Management</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Create, edit, and organize your AI prompts</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">🏷️ Smart Tagging</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Drag & drop tags for easy organization</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">🤖 AI Assistance</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Generate and optimize prompts with AI</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">📊 Usage Analytics</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Track which prompts you use most</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Managing Prompts Tab -->
+                    <div id="help-tab-prompts" class="help-tab-content hidden">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Managing Your Prompts 📝</h3>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">➕ Creating Prompts</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• Click <strong>"New Prompt"</strong> button in the top toolbar</li>
+                                    <li>• Fill in the title, description, and prompt text</li>
+                                    <li>• Add relevant tags for organization</li>
+                                    <li>• Use the <strong>🤖 AI Generate</strong> button to create descriptions automatically</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">✏️ Editing Prompts</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• Click the <strong>edit icon (✏️)</strong> on any prompt card</li>
+                                    <li>• Editing creates a new version while preserving history</li>
+                                    <li>• Use <strong>✨ AI Optimize</strong> to improve your prompt text</li>
+                                    <li>• All changes are automatically saved</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">📋 Using Prompts</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• Click the <strong>copy icon (📋)</strong> to copy prompt text to clipboard</li>
+                                    <li>• Usage count automatically increments when copied</li>
+                                    <li>• Last used date is updated for better sorting</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">📖 Version History</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• Click the <strong>history icon (📖)</strong> to view all versions</li>
+                                    <li>• Compare different versions side by side</li>
+                                    <li>• Restore previous versions if needed</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🔍 Search & Sort</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• Use the search bar to find prompts by title, description, or content</li>
+                                    <li>• Sort by: Creation Date, Title, Usage Count, or Last Used</li>
+                                    <li>• Filter by tags using the tag sidebar</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tags & Organization Tab -->
+                    <div id="help-tab-tags" class="help-tab-content hidden">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Tags & Organization 🏷️</h3>
+                                <p class="text-gray-700 dark:text-gray-300">Keep your prompts organized with our powerful tagging system.</p>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🎯 Creating Tags</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• Tags are created automatically when you type them in the tag field</li>
+                                    <li>• Use descriptive names like "writing", "coding", "marketing"</li>
+                                    <li>• Tags are case-insensitive and automatically formatted</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🖱️ Drag & Drop Tags</h4>
+                                <div class="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
+                                    <p class="text-blue-800 dark:text-blue-200 font-medium mb-2">✨ New Feature!</p>
+                                    <ul class="space-y-2 text-blue-700 dark:text-blue-300">
+                                        <li>• <strong>Drag tags from the sidebar</strong> directly onto prompt cards</li>
+                                        <li>• <strong>Visual feedback</strong> shows when you can drop a tag</li>
+                                        <li>• <strong>Instant organization</strong> - no need to edit each prompt</li>
+                                        <li>• <strong>Bulk tagging</strong> - quickly organize multiple prompts</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">📊 Tag Management</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• View all tags in the left sidebar with usage counts</li>
+                                    <li>• Click any tag to filter prompts by that tag</li>
+                                    <li>• Tags show the number of prompts they're applied to</li>
+                                    <li>• Unused tags are automatically cleaned up</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">💡 Organization Tips</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">By Purpose</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">writing, coding, analysis, creative</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">By Domain</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">marketing, technical, personal, work</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">By Complexity</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">simple, advanced, template, custom</p>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">By AI Model</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">gpt4, claude, gemini, local</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Features Tab -->
+                    <div id="help-tab-ai" class="help-tab-content hidden">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">AI-Powered Features 🤖</h3>
+                                <p class="text-gray-700 dark:text-gray-300">Enhance your prompts with built-in AI assistance.</p>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🤖 AI Generation</h4>
+                                <div class="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg">
+                                    <ul class="space-y-2 text-green-800 dark:text-green-200">
+                                        <li>• <strong>Auto-generate descriptions</strong> from your prompt text</li>
+                                        <li>• Click the <strong>🤖 Generate</strong> button next to the description field</li>
+                                        <li>• AI analyzes your prompt and creates a helpful description</li>
+                                        <li>• Perfect for quickly documenting what your prompts do</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">✨ AI Optimization</h4>
+                                <div class="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-lg">
+                                    <ul class="space-y-2 text-purple-800 dark:text-purple-200">
+                                        <li>• <strong>Improve your prompt text</strong> for better AI responses</li>
+                                        <li>• Click the <strong>✨ Optimize</strong> button next to the prompt field</li>
+                                        <li>• AI suggests improvements for clarity and effectiveness</li>
+                                        <li>• Great for refining prompts that aren't giving good results</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">⚙️ AI Configuration</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• Click the <strong>AI Settings</strong> button to configure providers</li>
+                                    <li>• Supports <strong>OpenRouter</strong> and <strong>Ollama</strong> providers</li>
+                                    <li>• Set your preferred default provider</li>
+                                    <li>• Configure API keys, models, and other settings</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🔧 Provider Setup</h4>
+                                <div class="space-y-4">
+                                    <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-2">OpenRouter Setup</h5>
+                                        <ul class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                            <li>1. Get API key from <a href="https://openrouter.ai" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">openrouter.ai</a></li>
+                                            <li>2. Enter API key in AI Settings → OpenRouter tab</li>
+                                            <li>3. Choose your preferred model (free models available)</li>
+                                            <li>4. Use the refresh button (🔄) to load available models</li>
+                                        </ul>
+                                    </div>
+                                    <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100 mb-2">Ollama Setup</h5>
+                                        <ul class="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                                            <li>1. Install Ollama locally from <a href="https://ollama.ai" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank">ollama.ai</a></li>
+                                            <li>2. Start Ollama service (usually runs on localhost:11434)</li>
+                                            <li>3. Configure endpoint in AI Settings → Ollama tab</li>
+                                            <li>4. Models are automatically detected from your Ollama installation</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Tab -->
+                    <div id="help-tab-advanced" class="help-tab-content hidden">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Advanced Features ⚙️</h3>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">📥 Import/Export</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• <strong>Export:</strong> Backup all your prompts as a JSON file</li>
+                                    <li>• <strong>Import:</strong> Restore prompts from a backup file</li>
+                                    <li>• <strong>Share:</strong> Exchange prompt collections with others</li>
+                                    <li>• Files include prompts, tags, and usage statistics</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🗄️ Database Management</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• Click <strong>"View Database"</strong> to see raw data structure</li>
+                                    <li>• All data is stored locally in your browser</li>
+                                    <li>• No data is sent to external servers (except AI providers)</li>
+                                    <li>• Regular backups recommended via Export function</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🌓 Customization</h4>
+                                <ul class="space-y-2 text-gray-700 dark:text-gray-300">
+                                    <li>• <strong>Theme Toggle:</strong> Switch between light and dark modes</li>
+                                    <li>• <strong>Sorting Options:</strong> Customize how prompts are displayed</li>
+                                    <li>• <strong>AI Settings:</strong> Configure temperature, timeouts, and retries</li>
+                                    <li>• <strong>System Prompts:</strong> Customize AI behavior for generation and optimization</li>
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">🔒 Privacy & Security</h4>
+                                <div class="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-lg">
+                                    <ul class="space-y-2 text-yellow-800 dark:text-yellow-200">
+                                        <li>• All prompts stored locally in your browser</li>
+                                        <li>• AI features only send data when you explicitly use them</li>
+                                        <li>• API keys are stored securely in local storage</li>
+                                        <li>• No telemetry or usage tracking</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 class="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">⌨️ Keyboard Shortcuts</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">General</h5>
+                                        <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                            <li><kbd class="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">Ctrl+N</kbd> New Prompt</li>
+                                            <li><kbd class="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">Ctrl+F</kbd> Search</li>
+                                            <li><kbd class="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">Ctrl+T</kbd> Toggle Theme</li>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                        <h5 class="font-medium text-gray-900 dark:text-gray-100">Modal Actions</h5>
+                                        <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                            <li><kbd class="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">Escape</kbd> Close Modal</li>
+                                            <li><kbd class="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">Ctrl+S</kbd> Save</li>
+                                            <li><kbd class="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">Ctrl+Enter</kbd> Submit</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <button id="view-database-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        🗄️ View Database
+                    </button>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                        Need more help? Check the documentation or create an issue on GitHub.
+                    </div>
+                </div>
             </div>
         </div>
         <div id="new-prompt-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">

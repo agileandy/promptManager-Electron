@@ -1340,6 +1340,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.electronAPI.openDatabaseViewer();
     });
 
+    // --- Help Modal Tab Functionality ---
+    const helpTabBtns = document.querySelectorAll('.help-tab-btn');
+    const helpTabContents = document.querySelectorAll('.help-tab-content');
+
+    // Function to switch help tabs
+    function switchHelpTab(targetTab) {
+        // Remove active class from all tab buttons
+        helpTabBtns.forEach(btn => {
+            btn.classList.remove('active', 'text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+            btn.classList.add('text-gray-500', 'dark:text-gray-400');
+        });
+
+        // Hide all tab contents
+        helpTabContents.forEach(content => {
+            content.classList.add('hidden');
+        });
+
+        // Activate the clicked tab button
+        const activeBtn = document.querySelector(`[data-tab="${targetTab}"]`);
+        if (activeBtn) {
+            activeBtn.classList.remove('text-gray-500', 'dark:text-gray-400');
+            activeBtn.classList.add('active', 'text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+        }
+
+        // Show the corresponding tab content
+        const activeContent = document.getElementById(`help-tab-${targetTab}`);
+        if (activeContent) {
+            activeContent.classList.remove('hidden');
+        }
+    }
+
+    // Add click event listeners to all tab buttons
+    helpTabBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetTab = btn.getAttribute('data-tab');
+            switchHelpTab(targetTab);
+        });
+    });
+
+    // Initialize with the first tab active when help modal opens
+    helpBtn.addEventListener('click', () => {
+        showModal(helpModal);
+        // Reset to first tab when opening
+        switchHelpTab('basics');
+    });
+
     // --- Sort Options ---
     const sortOptions = document.getElementById('sort-options');
 
