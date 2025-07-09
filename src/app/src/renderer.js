@@ -274,23 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const editAiOptimizeProvider = document.getElementById('edit-ai-optimize-provider');
 
     // --- AI Helper Functions ---
-    function populateProviderDropdowns() {
-        if (!aiService) return;
-
-        const providers = aiService.getAvailableProviders();
-        const providerOptions = providers.map(provider => {
-            // Safe access to aiConfig with fallback
-            const providerName = aiConfig?.providers?.[provider]?.name || provider;
-            return `<option value="${provider}">${providerName}</option>`;
-        }).join('');
-
-        // Populate all provider dropdowns
-        [aiGenerateProvider, aiOptimizeProvider, editAiGenerateProvider, editAiOptimizeProvider].forEach(select => {
-            if (select) {
-                select.innerHTML = '<option value="">Select AI Provider...</option>' + providerOptions;
-            }
-        });
-    }
 
     function showLoadingState(button, originalText) {
         button.disabled = true;
@@ -1427,6 +1410,33 @@ function initializeAISettingsModal() {
     const generalTab = document.getElementById('general-tab');
     const openrouterPanel = document.getElementById('openrouter-content');
     const ollamaPanel = document.getElementById('ollama-content');
+// Global function to populate provider dropdowns (accessible from AI settings)
+function populateProviderDropdowns() {
+    if (!aiService) return;
+
+    const providers = aiService.getAvailableProviders();
+    const providerOptions = providers.map(provider => {
+        // Safe access to aiConfig with fallback
+        const providerName = aiConfig?.providers?.[provider]?.name || provider;
+        return `<option value="${provider}">${providerName}</option>`;
+    }).join('');
+
+    // Get all provider dropdown elements by ID
+    const dropdownIds = [
+        'ai-generate-provider',
+        'ai-optimize-provider',
+        'edit-ai-generate-provider',
+        'edit-ai-optimize-provider'
+    ];
+
+    // Populate all provider dropdowns
+    dropdownIds.forEach(id => {
+        const select = document.getElementById(id);
+        if (select) {
+            select.innerHTML = '<option value="">Select AI Provider...</option>' + providerOptions;
+        }
+    });
+}
     const generalPanel = document.getElementById('general-content');
 
     // Test connection buttons
