@@ -241,6 +241,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         await renderPrompts();
     });
 
+    // --- Delete Tag Function ---
+    async function deleteTag(tagId, tagPath) {
+        try {
+            // Double-check safety: verify tag has no children and no prompts
+            const allTags = await db.tags.toArray();
+            const hasChildren = allTags.some(t => t.parentId === tagId);
+            const promptTagRelations = await db.promptTags.where('tagId').equals(tagId).toArray();
+            
+            // Debug: Let's see what's actually in the database
+            console.log(`Debug: Attempting to delete tag "${tagPath}" (ID: ${tagId})`);
+            console.log('All promptTag relations for this tag:', promptTagRelations);
+            
+            // Check which of these relations point to latest prompts
+            if (promptTagRelations.length > 0) {
+                const promptIds = promptTagRelations.map(pt => pt.promptId);
+                const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
+                console.log('Latest prompts using this tag:', latestPrompts);
+                
+                if (latestPrompts.length > 0) {
+                    alert(`Cannot delete tag: it is still in use by ${latestPrompts.length} current prompt(s)`);
+                    return;
+                }
+                
+                // If we get here, the tag is only used by old versions - clean them up
+                console.log('Tag only used by old versions, cleaning up orphaned relationships...');
+                await db.promptTags.where('tagId').equals(tagId).delete();
+            }
+            
+            if (hasChildren) {
+                alert('Cannot delete tag: it has child tags');
+                return;
+            }
+            
+            // Confirm deletion
+            if (!confirm(`Are you sure you want to delete the tag "${tagPath}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+            
+            // Safe to delete - remove from database
+            await db.tags.delete(tagId);
+            
+            // Refresh the tag tree
+            await renderTagTree();
+            
+            console.log(`Tag "${tagPath}" deleted successfully`);
+            
+        } catch (error) {
+            console.error('Error deleting tag:', error);
+            alert('Error deleting tag. Please try again.');
+        }
+    }
+
 // --- Render Tag Tree ---
     async function renderTagTree() {
         const tagTree = document.getElementById('tag-tree');
@@ -287,13 +339,43 @@ document.addEventListener('DOMContentLoaded', async () => {
             for (const tag of filteredTags) {
                 // Get rollup count of unique prompts in this tag's entire subtree
                 const promptCount = await getTagTreePromptCount(tags, tag.id);
+                
+                // Check if this tag has children
+                const hasChildren = tags.some(t => t.parentId === tag.id);
+                
+                // Show delete button if tag has no children AND count is 0
+                const showDelete = !hasChildren && promptCount === 0;
 
                 const li = document.createElement('li');
                 li.classList.add('mb-2', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1');
-                li.innerHTML = `${tag.name} <span class="text-xs text-gray-500 dark:text-gray-400">(${promptCount})</span>`;
-                li.setAttribute('data-tag-path', tag.fullPath);
+                
+                // Create a wrapper div for the tag content and delete button
+                const tagWrapper = document.createElement('div');
+                tagWrapper.classList.add('flex', 'items-center', 'justify-between');
+                
+                const tagContent = document.createElement('span');
+                tagContent.innerHTML = `${tag.name} <span class="text-xs text-gray-500 dark:text-gray-400">(${promptCount})</span>`;
+                tagContent.setAttribute('data-tag-path', tag.fullPath);
+                
+                tagWrapper.appendChild(tagContent);
+                
+                if (showDelete) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '&#128465;'; // Trash icon
+                    deleteBtn.className = 'text-red-500 hover:text-red-700 ml-2 text-sm';
+                    deleteBtn.title = 'Delete unused tag';
+                    deleteBtn.onclick = async (e) => {
+                        e.stopPropagation();
+                        await deleteTag(tag.id, tag.fullPath);
+                    };
+                    tagWrapper.appendChild(deleteBtn);
+                }
+                
+                li.appendChild(tagWrapper);
 
                 li.addEventListener('click', async (e) => {
+                    // Only handle click if it's not on the delete button
+                    if (e.target.tagName === 'BUTTON') return;
                     e.stopPropagation();
                     await renderPromptsByTag(tag.fullPath);
                     document.querySelectorAll('#tag-tree li').forEach(e => e.classList.remove('bg-gray-300', 'dark:bg-gray-800'));
@@ -450,6 +532,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Mark the old version as not the latest
             await db.prompts.update(originalPromptId, { isLatest: 0 });
+
+            // Remove old tag relationships from the old version
+            await db.promptTags.where('promptId').equals(originalPromptId).delete();
 
             // Add the new version
             const newPromptId = await db.prompts.add({
