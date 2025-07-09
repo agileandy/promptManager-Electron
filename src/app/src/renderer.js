@@ -1428,8 +1428,8 @@ function initializeAISettingsModal() {
     const generalPanel = document.getElementById('general-content');
 
     // Test connection buttons
-    const testOpenrouterBtn = document.getElementById('test-openrouter-connection');
-    const testOllamaBtn = document.getElementById('test-ollama-connection');
+    const testOpenrouterBtn = document.getElementById('test-openrouter');
+    const testOllamaBtn = document.getElementById('test-ollama');
 
     // Current active tab
     let activeTab = 'openrouter';
@@ -1517,16 +1517,18 @@ async function loadAISettings() {
         const config = await window.electronAPI.ai.getConfig();
 
         // OpenRouter settings
+        document.getElementById('openrouter-enabled').checked = config.openrouter?.enabled !== false;
         document.getElementById('openrouter-api-key').value = config.openrouter?.apiKey || '';
         document.getElementById('openrouter-model').value = config.openrouter?.model || 'anthropic/claude-3.5-sonnet';
-        document.getElementById('openrouter-timeout').value = config.openrouter?.timeout || 30000;
-        document.getElementById('openrouter-retries').value = config.openrouter?.retries || 3;
+        document.getElementById('openrouter-timeout').value = (config.openrouter?.timeout || 30000) / 1000; // Convert to seconds
+        document.getElementById('openrouter-retries').value = config.openrouter?.retries || 2;
 
         // Ollama settings
+        document.getElementById('ollama-enabled').checked = config.ollama?.enabled !== false;
         document.getElementById('ollama-endpoint').value = config.ollama?.endpoint || 'http://localhost:11434';
-        document.getElementById('ollama-model').value = config.ollama?.model || 'llama2';
-        document.getElementById('ollama-timeout').value = config.ollama?.timeout || 30000;
-        document.getElementById('ollama-retries').value = config.ollama?.retries || 3;
+        document.getElementById('ollama-model').value = config.ollama?.model || 'llama3.1:8b';
+        document.getElementById('ollama-timeout').value = (config.ollama?.timeout || 60000) / 1000; // Convert to seconds
+        document.getElementById('ollama-retries').value = config.ollama?.retries || 1;
 
         // General settings
         document.getElementById('default-provider').value = config.defaultProvider || 'openrouter';
@@ -1547,15 +1549,17 @@ async function saveAISettings() {
     try {
         const config = {
             openrouter: {
+                enabled: document.getElementById('openrouter-enabled').checked,
                 apiKey: document.getElementById('openrouter-api-key').value.trim(),
                 model: document.getElementById('openrouter-model').value,
-                timeout: parseInt(document.getElementById('openrouter-timeout').value),
+                timeout: parseInt(document.getElementById('openrouter-timeout').value) * 1000, // Convert to milliseconds
                 retries: parseInt(document.getElementById('openrouter-retries').value)
             },
             ollama: {
+                enabled: document.getElementById('ollama-enabled').checked,
                 endpoint: document.getElementById('ollama-endpoint').value.trim(),
                 model: document.getElementById('ollama-model').value.trim(),
-                timeout: parseInt(document.getElementById('ollama-timeout').value),
+                timeout: parseInt(document.getElementById('ollama-timeout').value) * 1000, // Convert to milliseconds
                 retries: parseInt(document.getElementById('ollama-retries').value)
             },
             defaultProvider: document.getElementById('default-provider').value,
@@ -1593,13 +1597,17 @@ async function saveAISettings() {
 async function resetAISettings() {
     try {
         // Clear all form fields to defaults
+        document.getElementById('openrouter-enabled').checked = true;
         document.getElementById('openrouter-api-key').value = '';
         document.getElementById('openrouter-model').value = 'anthropic/claude-3.5-sonnet';
-        document.getElementById('openrouter-timeout').value = '30000';
-        document.getElementById('openrouter-retries').value = '3';
+        document.getElementById('openrouter-timeout').value = '30';
+        document.getElementById('openrouter-retries').value = '2';
 
+        document.getElementById('ollama-enabled').checked = true;
         document.getElementById('ollama-endpoint').value = 'http://localhost:11434';
-        document.getElementById('ollama-model').value = 'llama2';
+        document.getElementById('ollama-model').value = 'llama3.1:8b';
+        document.getElementById('ollama-timeout').value = '60';
+        document.getElementById('ollama-retries').value = '1';
         document.getElementById('ollama-timeout').value = '30000';
         document.getElementById('ollama-retries').value = '3';
 
@@ -1619,8 +1627,8 @@ async function resetAISettings() {
 // Test provider connection
 async function testProviderConnection(provider) {
     const testBtn = provider === 'openrouter' ?
-        document.getElementById('test-openrouter-connection') :
-        document.getElementById('test-ollama-connection');
+        document.getElementById('test-openrouter') :
+        document.getElementById('test-ollama');
 
     const originalText = testBtn.textContent;
 
@@ -1636,14 +1644,14 @@ async function testProviderConnection(provider) {
             config = {
                 apiKey: document.getElementById('openrouter-api-key').value.trim(),
                 model: document.getElementById('openrouter-model').value,
-                timeout: parseInt(document.getElementById('openrouter-timeout').value),
+                timeout: parseInt(document.getElementById('openrouter-timeout').value) * 1000, // Convert to milliseconds
                 retries: parseInt(document.getElementById('openrouter-retries').value)
             };
         } else {
             config = {
                 endpoint: document.getElementById('ollama-endpoint').value.trim(),
                 model: document.getElementById('ollama-model').value.trim(),
-                timeout: parseInt(document.getElementById('ollama-timeout').value),
+                timeout: parseInt(document.getElementById('ollama-timeout').value) * 1000, // Convert to milliseconds
                 retries: parseInt(document.getElementById('ollama-retries').value)
             };
         }
