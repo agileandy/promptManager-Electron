@@ -112,10 +112,17 @@ class OpenRouterProvider extends BaseProvider {
      */
     async getAvailableModels() {
         try {
+            if (!this.apiKey) {
+                console.warn('OpenRouter API key not configured, cannot fetch models');
+                return [];
+            }
+
             const response = await this.makeRequest('https://openrouter.ai/api/v1/models', {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${this.apiKey}`
+                    'Authorization': `Bearer ${this.apiKey}`,
+                    'HTTP-Referer': 'https://github.com/agileandy/promptManager-Electron',
+                    'X-Title': 'AI Prompt Manager'
                 }
             });
 

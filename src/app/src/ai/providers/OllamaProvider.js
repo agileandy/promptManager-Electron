@@ -109,8 +109,15 @@ class OllamaProvider extends BaseProvider {
         };
 
         try {
-            const response = await this.makeRequest(this.endpoint, requestOptions);
+            // Use the correct Ollama chat endpoint
+            const chatEndpoint = `${this.getBaseUrl()}/api/chat`;
+            console.log('Making Ollama request to:', chatEndpoint);
+            console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
+            const response = await this.makeRequest(chatEndpoint, requestOptions);
             const data = await response.json();
+
+            console.log('Ollama response:', data);
 
             if (data.error) {
                 throw new Error(`Ollama API error: ${data.error}`);
@@ -123,6 +130,7 @@ class OllamaProvider extends BaseProvider {
             return data.message.content.trim();
         } catch (error) {
             console.error('Ollama completion failed:', error);
+            console.error('Error details:', error.message);
             throw error;
         }
     }
