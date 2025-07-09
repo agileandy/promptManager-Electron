@@ -79,6 +79,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize AI service
     await initializeAIService();
 
+    // Initialize AI settings modal
+    initializeAISettingsModal();
+
     // --- Tag Input Logic ---
     const tagInput = document.getElementById('prompt-tags');
     const tagSuggestions = document.getElementById('tag-suggestions');
@@ -331,7 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 providerSelect.removeEventListener('change', handleProviderSelection);
 
                 try {
-                    const generatedText = await aiService.generatePrompt(description, selectedProvider);
+                    const generatedText = await aiService.generateDescription(description, selectedProvider);
                     textOutput.value = generatedText;
                     resolve(true);
                 } catch (error) {
@@ -1406,3 +1409,276 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initial render
     renderPrompts();
 });
+
+// --- AI Settings Modal Functions ---
+function initializeAISettingsModal() {
+    const aiSettingsBtn = document.getElementById('ai-settings-btn');
+    const aiSettingsModal = document.getElementById('ai-settings-modal');
+    const aiSettingsClose = document.getElementById('ai-settings-close');
+    const aiSettingsCancel = document.getElementById('ai-settings-cancel');
+    const aiSettingsSave = document.getElementById('ai-settings-save');
+    const aiSettingsReset = document.getElementById('ai-settings-reset');
+
+    // Tab elements
+    const openrouterTab = document.getElementById('openrouter-tab');
+    const ollamaTab = document.getElementById('ollama-tab');
+    const generalTab = document.getElementById('general-tab');
+    const openrouterPanel = document.getElementById('openrouter-panel');
+    const ollamaPanel = document.getElementById('ollama-panel');
+    const generalPanel = document.getElementById('general-panel');
+
+    // Test connection buttons
+    const testOpenrouterBtn = document.getElementById('test-openrouter');
+    const testOllamaBtn = document.getElementById('test-ollama');
+
+    // Current active tab
+    let activeTab = 'openrouter';
+
+    // Tab switching function
+    function switchTab(tabName) {
+        // Update tab buttons
+        [openrouterTab, ollamaTab, generalTab].forEach(tab => {
+            tab.classList.remove('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+            tab.classList.add('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+        });
+
+        // Update panels
+        [openrouterPanel, ollamaPanel, generalPanel].forEach(panel => {
+            panel.classList.add('hidden');
+        });
+
+        // Activate selected tab and panel
+        if (tabName === 'openrouter') {
+            openrouterTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            openrouterTab.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+            openrouterPanel.classList.remove('hidden');
+        } else if (tabName === 'ollama') {
+            ollamaTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            ollamaTab.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+            ollamaPanel.classList.remove('hidden');
+        } else if (tabName === 'general') {
+            generalTab.classList.remove('border-transparent', 'text-gray-500', 'dark:text-gray-400');
+            generalTab.classList.add('border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+            generalPanel.classList.remove('hidden');
+        }
+
+        activeTab = tabName;
+    }
+
+    // Event listeners for tabs
+    openrouterTab.addEventListener('click', () => switchTab('openrouter'));
+    ollamaTab.addEventListener('click', () => switchTab('ollama'));
+    generalTab.addEventListener('click', () => switchTab('general'));
+
+    // Open modal
+    aiSettingsBtn.addEventListener('click', async () => {
+        await loadAISettings();
+        aiSettingsModal.classList.remove('hidden');
+        switchTab('openrouter'); // Default to first tab
+    });
+
+    // Close modal handlers
+    const closeModal = () => {
+        aiSettingsModal.classList.add('hidden');
+    };
+
+    aiSettingsClose.addEventListener('click', closeModal);
+    aiSettingsCancel.addEventListener('click', closeModal);
+
+    // Click outside to close
+    aiSettingsModal.addEventListener('click', (e) => {
+        if (e.target === aiSettingsModal) {
+            closeModal();
+        }
+    });
+
+    // Save settings
+    aiSettingsSave.addEventListener('click', async () => {
+        await saveAISettings();
+        closeModal();
+    });
+
+    // Reset settings
+    aiSettingsReset.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to reset all AI settings to defaults? This will clear all API keys and configurations.')) {
+            await resetAISettings();
+        }
+    });
+
+    // Test connection handlers
+    testOpenrouterBtn.addEventListener('click', async () => {
+        await testProviderConnection('openrouter');
+    });
+
+    testOllamaBtn.addEventListener('click', async () => {
+        await testProviderConnection('ollama');
+    });
+}
+
+// Load AI settings from backend
+async function loadAISettings() {
+    try {
+        const config = await window.electronAPI.ai.getConfig();
+
+        // OpenRouter settings
+        document.getElementById('openrouter-api-key').value = config.openrouter?.apiKey || '';
+        document.getElementById('openrouter-model').value = config.openrouter?.model || 'anthropic/claude-3.5-sonnet';
+        document.getElementById('openrouter-timeout').value = config.openrouter?.timeout || 30000;
+        document.getElementById('openrouter-retries').value = config.openrouter?.retries || 3;
+
+        // Ollama settings
+        document.getElementById('ollama-endpoint').value = config.ollama?.endpoint || 'http://localhost:11434';
+        document.getElementById('ollama-model').value = config.ollama?.model || 'llama2';
+        document.getElementById('ollama-timeout').value = config.ollama?.timeout || 30000;
+        document.getElementById('ollama-retries').value = config.ollama?.retries || 3;
+
+        // General settings
+        document.getElementById('default-provider').value = config.defaultProvider || 'openrouter';
+        document.getElementById('generation-system-prompt').value = config.systemPrompts?.generation || 'You are an AI assistant that helps generate high-quality prompts based on user descriptions.';
+        document.getElementById('optimization-system-prompt').value = config.systemPrompts?.optimization || 'You are an AI assistant that helps optimize and improve existing prompts for better clarity and effectiveness.';
+        document.getElementById('temperature').value = config.temperature || 0.7;
+
+        console.log('AI settings loaded successfully');
+    } catch (error) {
+        console.error('Failed to load AI settings:', error);
+        alert('Failed to load AI settings. Please try again.');
+    }
+}
+
+// Save AI settings to backend
+async function saveAISettings() {
+    try {
+        const config = {
+            openrouter: {
+                apiKey: document.getElementById('openrouter-api-key').value.trim(),
+                model: document.getElementById('openrouter-model').value,
+                timeout: parseInt(document.getElementById('openrouter-timeout').value),
+                retries: parseInt(document.getElementById('openrouter-retries').value)
+            },
+            ollama: {
+                endpoint: document.getElementById('ollama-endpoint').value.trim(),
+                model: document.getElementById('ollama-model').value.trim(),
+                timeout: parseInt(document.getElementById('ollama-timeout').value),
+                retries: parseInt(document.getElementById('ollama-retries').value)
+            },
+            defaultProvider: document.getElementById('default-provider').value,
+            systemPrompts: {
+                generation: document.getElementById('generation-system-prompt').value.trim(),
+                optimization: document.getElementById('optimization-system-prompt').value.trim()
+            },
+            temperature: parseFloat(document.getElementById('temperature').value)
+        };
+
+        const result = await window.electronAPI.ai.saveConfig(config);
+
+        if (result.success) {
+            // Reload AI config
+            aiConfig = config;
+
+            // Update provider dropdowns
+            populateProviderDropdowns();
+
+            alert('AI settings saved successfully!');
+            console.log('AI settings saved successfully');
+        } else {
+            throw new Error(result.error || 'Failed to save configuration');
+        }
+    } catch (error) {
+        console.error('Failed to save AI settings:', error);
+        alert('Failed to save AI settings: ' + error.message);
+    }
+}
+
+// Reset AI settings to defaults
+async function resetAISettings() {
+    try {
+        // Clear all form fields to defaults
+        document.getElementById('openrouter-api-key').value = '';
+        document.getElementById('openrouter-model').value = 'anthropic/claude-3.5-sonnet';
+        document.getElementById('openrouter-timeout').value = '30000';
+        document.getElementById('openrouter-retries').value = '3';
+
+        document.getElementById('ollama-endpoint').value = 'http://localhost:11434';
+        document.getElementById('ollama-model').value = 'llama2';
+        document.getElementById('ollama-timeout').value = '30000';
+        document.getElementById('ollama-retries').value = '3';
+
+        document.getElementById('default-provider').value = 'openrouter';
+        document.getElementById('generation-system-prompt').value = 'You are an AI assistant that helps generate high-quality prompts based on user descriptions.';
+        document.getElementById('optimization-system-prompt').value = 'You are an AI assistant that helps optimize and improve existing prompts for better clarity and effectiveness.';
+        document.getElementById('temperature').value = '0.7';
+
+        console.log('AI settings reset to defaults');
+    } catch (error) {
+        console.error('Failed to reset AI settings:', error);
+        alert('Failed to reset AI settings. Please try again.');
+    }
+}
+
+// Test provider connection
+async function testProviderConnection(provider) {
+    const testBtn = provider === 'openrouter' ?
+        document.getElementById('test-openrouter') :
+        document.getElementById('test-ollama');
+
+    const originalText = testBtn.textContent;
+
+    try {
+        // Show loading state
+        testBtn.disabled = true;
+        testBtn.textContent = 'Testing...';
+        testBtn.classList.add('opacity-50');
+
+        // Get current form values for testing
+        let config;
+        if (provider === 'openrouter') {
+            config = {
+                apiKey: document.getElementById('openrouter-api-key').value.trim(),
+                model: document.getElementById('openrouter-model').value,
+                timeout: parseInt(document.getElementById('openrouter-timeout').value),
+                retries: parseInt(document.getElementById('openrouter-retries').value)
+            };
+        } else {
+            config = {
+                endpoint: document.getElementById('ollama-endpoint').value.trim(),
+                model: document.getElementById('ollama-model').value.trim(),
+                timeout: parseInt(document.getElementById('ollama-timeout').value),
+                retries: parseInt(document.getElementById('ollama-retries').value)
+            };
+        }
+
+        const result = await window.electronAPI.ai.testProvider(provider, config);
+
+        if (result.success) {
+            testBtn.textContent = '✓ Connected';
+            testBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+            testBtn.classList.add('bg-green-500');
+
+            setTimeout(() => {
+                testBtn.textContent = originalText;
+                testBtn.classList.remove('bg-green-500');
+                testBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+            }, 2000);
+        } else {
+            throw new Error(result.error || 'Connection test failed');
+        }
+    } catch (error) {
+        console.error(`${provider} connection test failed:`, error);
+
+        testBtn.textContent = '✗ Failed';
+        testBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+        testBtn.classList.add('bg-red-500');
+
+        setTimeout(() => {
+            testBtn.textContent = originalText;
+            testBtn.classList.remove('bg-red-500');
+            testBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+        }, 2000);
+
+        alert(`Connection test failed: ${error.message}`);
+    } finally {
+        // Restore button state
+        testBtn.disabled = false;
+        testBtn.classList.remove('opacity-50');
+    }
+}

@@ -123,6 +123,64 @@ function registerAIHandlers() {
     }
   });
 
+  // Save AI configuration
+  ipcMain.handle('ai-save-config', async (event, config) => {
+    console.log('ai-save-config handler called');
+    try {
+      const { configManager } = require(path.resolve(__dirname, 'src/ai/ConfigManager.js'));
+      await configManager.saveAIConfig(config);
+
+      // Reinitialize AI service with new config
+      const { aiService: service } = require(path.resolve(__dirname, 'src/ai/AIService.js'));
+      await service.initialize(config);
+      aiService = service;
+      aiConfig = config;
+
+      console.log('AI configuration saved and service reinitialized');
+      return { success: true, providers: aiService.getAvailableProviders() };
+    } catch (error) {
+      console.error('Failed to save AI configuration:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get current AI configuration
+  ipcMain.handle('ai-get-config', async () => {
+    console.log('ai-get-config handler called');
+    try {
+      const { configManager } = require(path.resolve(__dirname, 'src/ai/ConfigManager.js'));
+      const config = await configManager.getAIConfig();
+      return { success: true, config };
+    } catch (error) {
+      console.error('Failed to get AI configuration:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Test AI provider connection
+  ipcMain.handle('ai-test-provider', async (event, providerName, providerConfig) => {
+    console.log('ai-test-provider handler called for:', providerName);
+    try {
+      // Create temporary provider instance for testing
+      let provider;
+      if (providerName === 'openrouter') {
+        const { OpenRouterProvider } = require(path.resolve(__dirname, 'src/ai/providers/OpenRouterProvider.js'));
+        provider = new OpenRouterProvider(providerConfig);
+      } else if (providerName === 'ollama') {
+        const { OllamaProvider } = require(path.resolve(__dirname, 'src/ai/providers/OllamaProvider.js'));
+        provider = new OllamaProvider(providerConfig);
+      } else {
+        throw new Error(`Unknown provider: ${providerName}`);
+      }
+
+      const result = await provider.testConnection();
+      return { success: true, connected: result };
+    } catch (error) {
+      console.error(`Failed to test ${providerName} connection:`, error);
+      return { success: false, error: error.message };
+    }
+  });
+
   console.log('All AI IPC handlers registered successfully');
 }
 

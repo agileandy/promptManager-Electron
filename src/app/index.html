@@ -59,6 +59,9 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-3">
+                        <button id="ai-settings-btn" class="bg-purple-500 hover:bg-purple-600 text-white rounded-lg px-3 py-2 transition-colors" title="AI Settings">
+                            <span class="text-lg">⚙️</span>
+                        </button>
                         <button id="toggle-theme" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg px-3 py-2 transition-colors" title="Toggle Theme">
                             <span class="text-lg">🌓</span>
                         </button>
@@ -271,6 +274,232 @@
     <!-- Dexie.js for IndexedDB -->
     <script src="https://unpkg.com/dexie@3/dist/dexie.js"></script>
     <!-- Main Renderer Script -->
+    <!-- AI Settings Modal -->
+    <div id="ai-settings-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span>⚙️</span> AI Settings
+                </h2>
+                <button id="close-ai-settings" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="flex h-[70vh]">
+                <!-- Sidebar Navigation -->
+                <div class="w-1/4 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 p-4">
+                    <nav class="space-y-2">
+                        <button id="openrouter-tab" class="w-full text-left p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors tab-button active">
+                            <div class="flex items-center gap-3">
+                                <span class="text-lg">🌐</span>
+                                <div>
+                                    <div class="font-medium">OpenRouter</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Cloud AI Models</div>
+                                </div>
+                            </div>
+                        </button>
+                        <button id="ollama-tab" class="w-full text-left p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors tab-button">
+                            <div class="flex items-center gap-3">
+                                <span class="text-lg">🦙</span>
+                                <div>
+                                    <div class="font-medium">Ollama</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Local AI Models</div>
+                                </div>
+                            </div>
+                        </button>
+                        <button id="general-tab" class="w-full text-left p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors tab-button">
+                            <div class="flex items-center gap-3">
+                                <span class="text-lg">⚙️</span>
+                                <div>
+                                    <div class="font-medium">General</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">Default Settings</div>
+                                </div>
+                            </div>
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Content Area -->
+                <div class="flex-1 p-6 overflow-y-auto">
+                    <!-- OpenRouter Settings -->
+                    <div id="openrouter-content" class="tab-content">
+                        <div class="space-y-6">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xl font-semibold">OpenRouter Configuration</h3>
+                                <label class="flex items-center gap-2">
+                                    <input type="checkbox" id="openrouter-enabled" class="rounded">
+                                    <span>Enable OpenRouter</span>
+                                </label>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">API Key</label>
+                                    <div class="flex gap-2">
+                                        <input type="password" id="openrouter-api-key" placeholder="Enter your OpenRouter API key"
+                                               class="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                        <button id="toggle-openrouter-key" class="px-3 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">
+                                            👁️
+                                        </button>
+                                    </div>
+                                    <p class="text-sm text-gray-500 mt-1">Get your API key from <a href="https://openrouter.ai" target="_blank" class="text-purple-500 hover:underline">openrouter.ai</a></p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Model</label>
+                                    <select id="openrouter-model" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                        <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                                        <option value="openai/gpt-4o">GPT-4o</option>
+                                        <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                                        <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</option>
+                                        <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+                                    </select>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Timeout (seconds)</label>
+                                        <input type="number" id="openrouter-timeout" value="30" min="5" max="300"
+                                               class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Max Retries</label>
+                                        <input type="number" id="openrouter-retries" value="2" min="0" max="5"
+                                               class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                </div>
+
+                                <div class="flex gap-2">
+                                    <button id="test-openrouter" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                                        Test Connection
+                                    </button>
+                                    <div id="openrouter-status" class="flex items-center px-3 py-2 rounded-lg hidden">
+                                        <span id="openrouter-status-text"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ollama Settings -->
+                    <div id="ollama-content" class="tab-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xl font-semibold">Ollama Configuration</h3>
+                                <label class="flex items-center gap-2">
+                                    <input type="checkbox" id="ollama-enabled" class="rounded">
+                                    <span>Enable Ollama</span>
+                                </label>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Endpoint URL</label>
+                                    <input type="url" id="ollama-endpoint" value="http://localhost:11434" placeholder="http://localhost:11434"
+                                           class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    <p class="text-sm text-gray-500 mt-1">Make sure Ollama is running locally</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Model</label>
+                                    <select id="ollama-model" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                        <option value="llama3.1:8b">Llama 3.1 8B</option>
+                                        <option value="llama3.1:70b">Llama 3.1 70B</option>
+                                        <option value="codellama:7b">CodeLlama 7B</option>
+                                        <option value="mistral:7b">Mistral 7B</option>
+                                        <option value="phi3:mini">Phi-3 Mini</option>
+                                    </select>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Timeout (seconds)</label>
+                                        <input type="number" id="ollama-timeout" value="60" min="5" max="300"
+                                               class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Max Retries</label>
+                                        <input type="number" id="ollama-retries" value="1" min="0" max="5"
+                                               class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                </div>
+
+                                <div class="flex gap-2">
+                                    <button id="test-ollama" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                                        Test Connection
+                                    </button>
+                                    <div id="ollama-status" class="flex items-center px-3 py-2 rounded-lg hidden">
+                                        <span id="ollama-status-text"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- General Settings -->
+                    <div id="general-content" class="tab-content hidden">
+                        <div class="space-y-6">
+                            <h3 class="text-xl font-semibold">General AI Settings</h3>
+
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Default Provider</label>
+                                    <select id="default-provider" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                        <option value="openrouter">OpenRouter</option>
+                                        <option value="ollama">Ollama</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Generation System Prompt</label>
+                                    <textarea id="generation-prompt" rows="3" placeholder="System prompt for AI generation..."
+                                              class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Your role is to create AI generated user prompts based on the description provided to you</textarea>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium mb-2">Optimization System Prompt</label>
+                                    <textarea id="optimization-prompt" rows="3" placeholder="System prompt for AI optimization..."
+                                              class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Optimize this prompt for use in AI systems to improve clarity, specificity, and effectiveness</textarea>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Generation Temperature</label>
+                                        <input type="number" id="generation-temperature" value="0.7" min="0" max="2" step="0.1"
+                                               class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-2">Optimization Temperature</label>
+                                        <input type="number" id="optimization-temperature" value="0.3" min="0" max="2" step="0.1"
+                                               class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-700">
+                <button id="reset-ai-settings" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                    Reset to Defaults
+                </button>
+                <div class="flex gap-2">
+                    <button id="cancel-ai-settings" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button id="save-ai-settings" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        Save Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="./src/renderer.js"></script>
 </body>
 </html>
