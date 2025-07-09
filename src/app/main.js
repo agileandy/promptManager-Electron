@@ -248,12 +248,18 @@ function registerAIHandlers() {
   // Test AI provider connection
   ipcMain.handle('ai-test-provider', async (event, providerName, providerConfig) => {
     console.log('ai-test-provider handler called for:', providerName);
+    console.log('Provider config:', providerConfig);
     try {
       // Create temporary provider instance for testing
       let provider;
       if (providerName === 'openrouter') {
         const { OpenRouterProvider } = require(path.resolve(__dirname, 'src/ai/providers/OpenRouterProvider.js'));
-        provider = new OpenRouterProvider(providerConfig);
+        // Ensure OpenRouter has the correct endpoint
+        const config = {
+          ...providerConfig,
+          endpoint: providerConfig.endpoint || 'https://openrouter.ai/api/v1/chat/completions'
+        };
+        provider = new OpenRouterProvider(config);
       } else if (providerName === 'ollama') {
         const { OllamaProvider } = require(path.resolve(__dirname, 'src/ai/providers/OllamaProvider.js'));
         provider = new OllamaProvider(providerConfig);

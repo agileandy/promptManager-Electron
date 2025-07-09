@@ -93,6 +93,17 @@ class AIService {
     }
 
     /**
+     * Generate a description for a prompt using AI
+     * @param {string} description - User's description of the desired prompt
+     * @param {string} providerName - Optional provider name, uses default if not specified
+     * @returns {Promise<string>} Generated prompt text
+     */
+    async generateDescription(description, providerName = null) {
+        // This is an alias for generatePrompt to maintain compatibility
+        return await this.generatePrompt(description, providerName);
+    }
+
+    /**
      * Get default provider name
      * @returns {string} Default provider name
      */
