@@ -135,7 +135,7 @@ function registerAIHandlers() {
         defaultProvider: config.defaultProvider,
         providers: {
           openrouter: {
-            enabled: !!config.openrouter.apiKey,
+            enabled: config.openrouter.enabled && !!config.openrouter.apiKey,
             name: "OpenRouter",
             endpoint: "https://openrouter.ai/api/v1/chat/completions",
             model: config.openrouter.model,
@@ -144,9 +144,9 @@ function registerAIHandlers() {
             maxRetries: config.openrouter.retries
           },
           ollama: {
-            enabled: !!config.ollama.endpoint,
+            enabled: config.ollama.enabled && !!config.ollama.endpoint,
             name: "Ollama",
-            endpoint: config.ollama.endpoint + "/api/chat",
+            endpoint: config.ollama.endpoint.endsWith('/api/chat') ? config.ollama.endpoint : config.ollama.endpoint + "/api/chat",
             model: config.ollama.model,
             apiKey: null,
             timeout: config.ollama.timeout,
@@ -241,6 +241,20 @@ function registerAIHandlers() {
     } catch (error) {
       console.error(`Failed to test ${providerName} connection:`, error);
       return { success: false, error: error.message };
+    }
+  });
+
+  // Get available Ollama models
+  ipcMain.handle('ai-get-ollama-models', async (event, endpoint) => {
+    console.log('ai-get-ollama-models handler called for:', endpoint);
+    try {
+      const { OllamaProvider } = require(path.resolve(__dirname, 'src/ai/providers/OllamaProvider.js'));
+      const provider = new OllamaProvider({ endpoint: endpoint + '/api/chat' });
+      const models = await provider.getAvailableModels();
+      return { success: true, models };
+    } catch (error) {
+      console.error('Failed to get Ollama models:', error);
+      return { success: false, error: error.message, models: [] };
     }
   });
 

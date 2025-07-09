@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     optimizePrompt: (promptText, providerName) => ipcRenderer.invoke('ai-optimize-prompt', promptText, providerName),
     saveConfig: (config) => ipcRenderer.invoke('ai-save-config', config),
     getConfig: () => ipcRenderer.invoke('ai-get-config'),
-    testProvider: (providerName, providerConfig) => ipcRenderer.invoke('ai-test-provider', providerName, providerConfig)
+    testProvider: (providerName, providerConfig) => ipcRenderer.invoke('ai-test-provider', providerName, providerConfig),
+    getOllamaModels: (endpoint) => ipcRenderer.invoke('ai-get-ollama-models', endpoint)
   }
 });

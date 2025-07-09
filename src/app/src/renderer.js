@@ -1509,12 +1509,16 @@ function initializeAISettingsModal() {
     testOllamaBtn.addEventListener('click', async () => {
         await testProviderConnection('ollama');
     });
+
+    // Setup Ollama model refresh functionality
+    setupOllamaModelRefresh();
 }
 
 // Load AI settings from backend
 async function loadAISettings() {
     try {
         const config = await window.electronAPI.ai.getConfig();
+        console.log('Loaded config:', config);
 
         // OpenRouter settings
         document.getElementById('openrouter-enabled').checked = config.openrouter?.enabled !== false;
@@ -1536,6 +1540,9 @@ async function loadAISettings() {
         document.getElementById('optimization-prompt').value = config.systemPrompts?.optimization || 'You are an AI assistant that helps optimize and improve existing prompts for better clarity and effectiveness.';
         document.getElementById('generation-temperature').value = config.temperature?.generation || 0.7;
         document.getElementById('optimization-temperature').value = config.temperature?.optimization || 0.3;
+
+        // Load available Ollama models dynamically
+        await loadOllamaModels();
 
         console.log('AI settings loaded successfully');
     } catch (error) {
@@ -1608,8 +1615,6 @@ async function resetAISettings() {
         document.getElementById('ollama-model').value = 'llama3.1:8b';
         document.getElementById('ollama-timeout').value = '60';
         document.getElementById('ollama-retries').value = '1';
-        document.getElementById('ollama-timeout').value = '30000';
-        document.getElementById('ollama-retries').value = '3';
 
         document.getElementById('default-provider').value = 'openrouter';
         document.getElementById('generation-prompt').value = 'You are an AI assistant that helps generate high-quality prompts based on user descriptions.';
@@ -1670,6 +1675,73 @@ async function testProviderConnection(provider) {
             }, 2000);
         } else {
             throw new Error(result.error || 'Connection test failed');
+        }
+
+        // Load available Ollama models dynamically
+        async function loadOllamaModels() {
+            try {
+                const ollamaEndpoint = document.getElementById('ollama-endpoint').value.trim() || 'http://localhost:11434';
+                const currentModel = document.getElementById('ollama-model').value;
+                const modelSelect = document.getElementById('ollama-model');
+
+                // Clear existing options except the current one
+                modelSelect.innerHTML = `<option value="${currentModel}">${currentModel}</option>`;
+
+                // Try to fetch available models via IPC
+                const result = await window.electronAPI.ai.getOllamaModels(ollamaEndpoint);
+
+                if (result.success && result.models.length > 0) {
+                    const models = result.models;
+
+                    // Clear the select and populate with available models
+                    modelSelect.innerHTML = '';
+
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.name;
+                        option.textContent = model.name;
+                        if (model.name === currentModel) {
+                            option.selected = true;
+                        }
+                        modelSelect.appendChild(option);
+                    });
+
+                    // If current model is not in the list, add it as the first option
+                    if (!models.some(m => m.name === currentModel) && currentModel) {
+                        const option = document.createElement('option');
+                        option.value = currentModel;
+                        option.textContent = `${currentModel} (not found)`;
+                        option.selected = true;
+                        modelSelect.insertBefore(option, modelSelect.firstChild);
+                    }
+
+                    console.log(`Loaded ${models.length} Ollama models`);
+                } else {
+                    // No models found or error, add default option
+                    const option = document.createElement('option');
+                    option.value = currentModel || 'llama3.1:8b';
+                    option.textContent = currentModel || 'llama3.1:8b';
+                    option.selected = true;
+                    modelSelect.appendChild(option);
+
+                    if (result.error) {
+                        console.warn('Failed to fetch Ollama models:', result.error);
+                    }
+                }
+            } catch (error) {
+                console.warn('Could not load Ollama models:', error.message);
+                // Keep the current model value if fetching fails
+            }
+        }
+
+        // Add event listener to refresh Ollama models when endpoint changes
+        function setupOllamaModelRefresh() {
+            const endpointInput = document.getElementById('ollama-endpoint');
+            if (endpointInput) {
+                endpointInput.addEventListener('blur', async () => {
+                    await loadOllamaModels();
+                });
+            }
         }
     } catch (error) {
         console.error(`${provider} connection test failed:`, error);
