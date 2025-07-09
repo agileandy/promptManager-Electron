@@ -1599,14 +1599,14 @@ async function loadAISettings() {
         console.log('Loaded config:', config);
 
         // OpenRouter settings
-        document.getElementById('openrouter-enabled').checked = config.openrouter?.enabled !== false;
+        document.getElementById('openrouter-enabled').checked = config.openrouter?.enabled === true;
         document.getElementById('openrouter-api-key').value = config.openrouter?.apiKey || '';
         document.getElementById('openrouter-model').value = config.openrouter?.model || 'anthropic/claude-3.5-sonnet';
         document.getElementById('openrouter-timeout').value = (config.openrouter?.timeout || 30000) / 1000; // Convert to seconds
         document.getElementById('openrouter-retries').value = config.openrouter?.retries || 2;
 
         // Ollama settings
-        document.getElementById('ollama-enabled').checked = config.ollama?.enabled !== false;
+        document.getElementById('ollama-enabled').checked = config.ollama?.enabled === true;
         document.getElementById('ollama-endpoint').value = config.ollama?.endpoint || 'http://localhost:11434';
         document.getElementById('ollama-model').value = config.ollama?.model || 'llama3.1:8b';
         document.getElementById('ollama-timeout').value = (config.ollama?.timeout || 60000) / 1000; // Convert to seconds
