@@ -101,10 +101,79 @@ async function loadReadOnlyViewerModal() {
         const html = await response.text();
         document.getElementById('read-only-viewer-modal-container').innerHTML = html;
         console.log('Read-only viewer modal loaded successfully');
+
+        // Set up event listeners for the read-only viewer buttons
+        setupReadOnlyViewerEventListeners();
+
         return true;
     } catch (error) {
         console.error('Failed to load read-only viewer modal:', error);
         return false;
+    }
+}
+
+// Set up event listeners for the read-only viewer buttons
+function setupReadOnlyViewerEventListeners() {
+    console.log('Setting up read-only viewer event listeners');
+
+    // Close buttons
+    const closeViewerBtn = document.getElementById('close-viewer-btn');
+    const viewerCloseBtn = document.getElementById('viewer-close-btn');
+
+    if (closeViewerBtn) {
+        closeViewerBtn.addEventListener('click', hideReadOnlyViewer);
+        console.log('Added event listener to close-viewer-btn');
+    } else {
+        console.error('close-viewer-btn not found');
+    }
+
+    if (viewerCloseBtn) {
+        viewerCloseBtn.addEventListener('click', hideReadOnlyViewer);
+        console.log('Added event listener to viewer-close-btn');
+    } else {
+        console.error('viewer-close-btn not found');
+    }
+
+    // Copy button
+    const viewerCopyBtn = document.getElementById('viewer-copy-btn');
+    if (viewerCopyBtn) {
+        viewerCopyBtn.addEventListener('click', () => {
+            const promptText = document.getElementById('viewer-prompt-text').textContent;
+            navigator.clipboard.writeText(promptText)
+                .then(() => {
+                    // Show a temporary "Copied!" message
+                    const originalText = viewerCopyBtn.innerHTML;
+                    viewerCopyBtn.innerHTML = '<span>✓</span><span>Copied!</span>';
+                    setTimeout(() => {
+                        viewerCopyBtn.innerHTML = originalText;
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    alert('Failed to copy text to clipboard');
+                });
+        });
+        console.log('Added event listener to viewer-copy-btn');
+    } else {
+        console.error('viewer-copy-btn not found');
+    }
+
+    // Version navigation buttons
+    const prevVersionBtn = document.getElementById('viewer-prev-version-btn');
+    const nextVersionBtn = document.getElementById('viewer-next-version-btn');
+
+    if (prevVersionBtn) {
+        prevVersionBtn.addEventListener('click', () => navigateToVersion(-1));
+        console.log('Added event listener to viewer-prev-version-btn');
+    } else {
+        console.error('viewer-prev-version-btn not found');
+    }
+
+    if (nextVersionBtn) {
+        nextVersionBtn.addEventListener('click', () => navigateToVersion(1));
+        console.log('Added event listener to viewer-next-version-btn');
+    } else {
+        console.error('viewer-next-version-btn not found');
     }
 }
 
@@ -510,56 +579,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     cancelEditBtn.addEventListener('click', () => hideModal(editPromptModal));
     closeHistoryBtn.addEventListener('click', () => hideModal(historyModal));
 
-    // --- Read-Only Viewer Event Listeners ---
-    document.addEventListener('DOMContentLoaded', () => {
-        // These listeners need to be set up after the modal is loaded
-        setTimeout(() => {
-            const closeViewerBtn = document.getElementById('close-viewer-btn');
-            const viewerCloseBtn = document.getElementById('viewer-close-btn');
-            const prevVersionBtn = document.getElementById('viewer-prev-version-btn');
-            const nextVersionBtn = document.getElementById('viewer-next-version-btn');
-            const viewerCopyBtn = document.getElementById('viewer-copy-btn');
-
-            if (closeViewerBtn) closeViewerBtn.addEventListener('click', hideReadOnlyViewer);
-            if (viewerCloseBtn) viewerCloseBtn.addEventListener('click', hideReadOnlyViewer);
-            if (prevVersionBtn) prevVersionBtn.addEventListener('click', () => navigateToVersion(-1));
-            if (nextVersionBtn) nextVersionBtn.addEventListener('click', () => navigateToVersion(1));
-
-            if (viewerCopyBtn) {
-                viewerCopyBtn.addEventListener('click', async () => {
-                    if (!currentViewingPrompt) return;
-
-                    try {
-                        await navigator.clipboard.writeText(currentViewingPrompt.text);
-
-                        // Update the button text temporarily
-                        const originalText = viewerCopyBtn.innerHTML;
-                        viewerCopyBtn.innerHTML = '<span>✓</span><span>Copied!</span>';
-
-                        // Increment usage count
-                        await db.prompts.update(currentViewingPrompt.id, {
-                            timesUsed: (currentViewingPrompt.timesUsed || 0) + 1,
-                            lastUsedAt: new Date()
-                        });
-
-                        // Update the current viewing prompt
-                        currentViewingPrompt.timesUsed = (currentViewingPrompt.timesUsed || 0) + 1;
-                        currentViewingPrompt.lastUsedAt = new Date();
-
-                        // Update the UI
-                        updateViewerUI(currentViewingPrompt, currentVersionIndex, currentVersions.length);
-
-                        // Reset button text after a delay
-                        setTimeout(() => {
-                            viewerCopyBtn.innerHTML = originalText;
-                        }, 2000);
-                    } catch (error) {
-                        console.error('Failed to copy prompt text:', error);
-                    }
-                });
-            }
-        }, 500); // Give time for the modal to be loaded
-    });
+    // --- AI Button Elements ---
 
 // --- AI Button Elements ---
     const aiGenerateBtn = document.getElementById('ai-generate-btn');
