@@ -5,13 +5,13 @@
  * Implements ADR-001: Tag-Only Modification Interface
  */
 
-const {
+import {
     CreateTagCommand,
     DeleteTagCommand,
     RenameTagCommand,
     TagCommandExecutor,
     TagOperationError
-} = require('./index');
+} from './index.js';
 
 /**
  * Tag-Only Manager Class
@@ -361,4 +361,4 @@ class DatabaseTransactionManager {
     }
 }
 
-module.exports = TagOnlyManager;
+export { TagOnlyManager };

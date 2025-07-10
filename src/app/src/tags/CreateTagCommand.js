@@ -1,4 +1,4 @@
-const { TagCommandInterface, TagOperationResult, ValidationResult, TagOperationError } = require('./TagCommandInterface');
+import { TagCommandInterface, TagOperationResult, ValidationResult, TagOperationError } from './TagCommandInterface.js';
 
 /**
  * Create Tag Command
@@ -204,4 +204,4 @@ class CreateTagCommand extends TagCommandInterface {
     }
 }
 
-module.exports = CreateTagCommand;
+export default CreateTagCommand;

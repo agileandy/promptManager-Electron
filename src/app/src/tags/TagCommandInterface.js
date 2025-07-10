@@ -147,7 +147,7 @@ class TagOperationError extends Error {
     }
 }
 
-module.exports = {
+export {
     TagCommandInterface,
     TagOperationResult,
     ValidationResult,

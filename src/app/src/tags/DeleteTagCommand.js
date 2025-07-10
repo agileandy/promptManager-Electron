@@ -1,4 +1,4 @@
-const { TagCommandInterface, TagOperationResult, ValidationResult, TagOperationError } = require('./TagCommandInterface');
+import { TagCommandInterface, TagOperationResult, ValidationResult, TagOperationError } from './TagCommandInterface.js';
 
 /**
  * Delete Tag Command
@@ -251,4 +251,4 @@ class DeleteTagCommand extends TagCommandInterface {
     }
 }
 
-module.exports = DeleteTagCommand;
+export default DeleteTagCommand;

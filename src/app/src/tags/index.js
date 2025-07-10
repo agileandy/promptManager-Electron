@@ -5,16 +5,17 @@
  * with State Isolation as specified in the Tag Modification Architecture.
  */
 
-const {
+import {
     TagCommandInterface,
     TagOperationResult,
     ValidationResult,
     TagOperationError
-} = require('./TagCommandInterface');
+} from './TagCommandInterface.js';
 
-const CreateTagCommand = require('./CreateTagCommand');
-const DeleteTagCommand = require('./DeleteTagCommand');
-const RenameTagCommand = require('./RenameTagCommand');
+import CreateTagCommand from './CreateTagCommand.js';
+import DeleteTagCommand from './DeleteTagCommand.js';
+import RenameTagCommand from './RenameTagCommand.js';
+import { TagOnlyManager } from './TagOnlyManager.js';
 
 /**
  * Tag Command Factory
@@ -145,7 +146,7 @@ class TagCommandExecutor {
     }
 }
 
-module.exports = {
+export {
     // Core interfaces and classes
     TagCommandInterface,
     TagOperationResult,
@@ -156,6 +157,9 @@ module.exports = {
     CreateTagCommand,
     DeleteTagCommand,
     RenameTagCommand,
+
+    // Tag Manager
+    TagOnlyManager,
 
     // Utility classes
     TagCommandFactory,

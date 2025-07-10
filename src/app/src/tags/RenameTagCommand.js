@@ -1,4 +1,4 @@
-const { TagCommandInterface, TagOperationResult, ValidationResult, TagOperationError } = require('./TagCommandInterface');
+import { TagCommandInterface, TagOperationResult, ValidationResult, TagOperationError } from './TagCommandInterface.js';
 
 /**
  * Rename Tag Command
@@ -349,4 +349,4 @@ class RenameTagCommand extends TagCommandInterface {
     }
 }
 
-module.exports = RenameTagCommand;
+export default RenameTagCommand;
