@@ -53,6 +53,10 @@ ipcMain.handle('get-data-dir', () => {
 let aiService = null;
 let aiConfig = null;
 
+// Version Management Service variables
+let versionService = null;
+let versionStateManager = null;
+
 // Register AI IPC handlers when app is ready
 function registerAIHandlers() {
   console.log('Registering AI IPC handlers...');
@@ -311,12 +315,185 @@ function registerAIHandlers() {
   console.log('All AI IPC handlers registered successfully');
 }
 
+// Register Version Management IPC handlers
+function registerVersionHandlers() {
+  console.log('Registering Version Management IPC handlers...');
+
+  // Initialize version management services
+  ipcMain.handle('version-initialize', async () => {
+    console.log('version-initialize handler called');
+    try {
+      const { VersionService, VersionStateManager } = require(path.resolve(__dirname, 'src/version/index.js'));
+
+      // We'll get the database reference from the renderer when needed
+      // For now, we'll initialize the services when first used
+      console.log('Version Management services ready for initialization');
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to prepare version management services:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Delete version using Chain of Responsibility pattern
+  ipcMain.handle('version-delete', async (event, promptId, options = {}) => {
+    console.log('version-delete handler called', { promptId, options });
+    try {
+      // Initialize services if not already done
+      if (!versionService || !versionStateManager) {
+        const { VersionService, VersionStateManager } = require(path.resolve(__dirname, 'src/version/index.js'));
+
+        // Note: We need to get the database instance from the renderer
+        // This is a limitation of the current architecture where the database is in the renderer
+        return {
+          success: false,
+          error: 'Version services need database initialization from renderer',
+          requiresRendererInit: true
+        };
+      }
+
+      const result = await versionService.deleteVersion(promptId, options);
+      console.log('Version deletion result:', result);
+      return result;
+    } catch (error) {
+      console.error('Version deletion failed:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get version information
+  ipcMain.handle('version-get-info', async (event, promptId) => {
+    console.log('version-get-info handler called', { promptId });
+    try {
+      if (!versionService) {
+        return {
+          success: false,
+          error: 'Version service not initialized',
+          requiresRendererInit: true
+        };
+      }
+
+      const result = await versionService.getVersionInfo(promptId);
+      return result;
+    } catch (error) {
+      console.error('Failed to get version info:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get version dependencies
+  ipcMain.handle('version-get-dependencies', async (event, promptId) => {
+    console.log('version-get-dependencies handler called', { promptId });
+    try {
+      if (!versionService) {
+        return {
+          success: false,
+          error: 'Version service not initialized',
+          requiresRendererInit: true
+        };
+      }
+
+      const result = await versionService.getVersionDependencies(promptId);
+      return result;
+    } catch (error) {
+      console.error('Failed to get version dependencies:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Initialize version services with database (called from renderer)
+  ipcMain.handle('version-init-with-db', async (event, dbProxy) => {
+    console.log('version-init-with-db handler called');
+    try {
+      const { VersionService, VersionStateManager } = require(path.resolve(__dirname, 'src/version/index.js'));
+
+      // Create state manager
+      versionStateManager = new VersionStateManager(dbProxy);
+      await versionStateManager.initialize();
+
+      // Create version service
+      versionService = new VersionService(dbProxy, versionStateManager);
+
+      console.log('Version Management services initialized with database');
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to initialize version services with database:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Validate database state
+  ipcMain.handle('version-validate-state', async () => {
+    console.log('version-validate-state handler called');
+    try {
+      if (!versionStateManager) {
+        return {
+          success: false,
+          error: 'Version state manager not initialized',
+          requiresRendererInit: true
+        };
+      }
+
+      const result = await versionStateManager.validateDatabaseState();
+      return result;
+    } catch (error) {
+      console.error('Failed to validate database state:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Repair database state
+  ipcMain.handle('version-repair-state', async (event, issues) => {
+    console.log('version-repair-state handler called');
+    try {
+      if (!versionStateManager) {
+        return {
+          success: false,
+          error: 'Version state manager not initialized',
+          requiresRendererInit: true
+        };
+      }
+
+      const result = await versionStateManager.repairDatabaseState(issues);
+      return result;
+    } catch (error) {
+      console.error('Failed to repair database state:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get operation history
+  ipcMain.handle('version-get-history', async (event, limit = 50) => {
+    console.log('version-get-history handler called');
+    try {
+      if (!versionStateManager) {
+        return {
+          success: false,
+          error: 'Version state manager not initialized',
+          requiresRendererInit: true
+        };
+      }
+
+      const history = versionStateManager.getOperationHistory(limit);
+      return { success: true, history };
+    } catch (error) {
+      console.error('Failed to get operation history:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  console.log('All Version Management IPC handlers registered successfully');
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Register AI IPC handlers before creating window
   registerAIHandlers();
+
+  // Register Version Management IPC handlers
+  registerVersionHandlers();
 
   createWindow();
 

@@ -1232,13 +1232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } else if (target.classList.contains('delete-prompt-btn')) {
             const promptId = Number(target.dataset.id);
-            if (confirm('Are you sure you want to delete this prompt and all its history? This action cannot be undone.')) {
-                const promptToDelete = await db.prompts.get(promptId);
-                const parentId = promptToDelete.parentId || promptId;
-                // Delete all versions of the prompt
-                await db.prompts.where('parentId').equals(parentId).or('id').equals(parentId).delete();
-                await renderPrompts();
-            }
+            await handleVersionDeletion(promptId);
         } else if (target.classList.contains('history-icon')) {
             const parentId = Number(target.dataset.parentId);
             await showHistory(parentId);
@@ -2173,6 +2167,252 @@ function initializeTagModal() {
             closeDeleteModal();
         }
     });
+// --- Version Management Integration ---
+
+// Initialize version management services
+async function initializeVersionManagement() {
+    try {
+        console.log('Initializing version management services...');
+
+        // Initialize version management in main process
+        const initResult = await window.electronAPI.invoke('version-initialize');
+        if (!initResult.success) {
+            console.error('Failed to initialize version management:', initResult.error);
+            return false;
+        }
+
+        // Initialize with database proxy
+        // Note: We pass a simplified database proxy since we can't pass the full Dexie instance
+        const dbProxy = {
+            prompts: {
+                get: async (id) => await db.prompts.get(id),
+                where: (field) => ({
+                    equals: (value) => ({
+                        toArray: async () => await db.prompts.where(field).equals(value).toArray(),
+                        count: async () => await db.prompts.where(field).equals(value).count(),
+                        delete: async () => await db.prompts.where(field).equals(value).delete(),
+                        or: (field2) => ({
+                            equals: (value2) => ({
+                                toArray: async () => await db.prompts.where(field).equals(value).or(field2).equals(value2).toArray(),
+                                delete: async () => await db.prompts.where(field).equals(value).or(field2).equals(value2).delete()
+                            })
+                        })
+                    }),
+                    anyOf: (values) => ({
+                        toArray: async () => await db.prompts.where(field).anyOf(values).toArray(),
+                        delete: async () => await db.prompts.where(field).anyOf(values).delete(),
+                        and: (predicate) => ({
+                            count: async () => await db.prompts.where(field).anyOf(values).and(predicate).count()
+                        })
+                    })
+                }),
+                update: async (id, changes) => await db.prompts.update(id, changes),
+                delete: async (id) => await db.prompts.delete(id)
+            },
+            promptTags: {
+                where: (field) => ({
+                    equals: (value) => ({
+                        toArray: async () => await db.promptTags.where(field).equals(value).toArray(),
+                        delete: async () => await db.promptTags.where(field).equals(value).delete()
+                    }),
+                    anyOf: (values) => ({
+                        toArray: async () => await db.promptTags.where(field).anyOf(values).toArray(),
+                        delete: async () => await db.promptTags.where(field).anyOf(values).delete(),
+                        and: (predicate) => ({
+                            count: async () => await db.promptTags.where(field).anyOf(values).and(predicate).count()
+                        })
+                    })
+                }),
+                toArray: async () => await db.promptTags.toArray(),
+                delete: async (id) => await db.promptTags.delete(id)
+            },
+            tags: {
+                get: async (id) => await db.tags.get(id),
+                where: (field) => ({
+                    anyOf: (values) => ({
+                        toArray: async () => await db.tags.where(field).anyOf(values).toArray()
+                    })
+                }),
+                delete: async (id) => await db.tags.delete(id)
+            },
+            folders: {
+                get: async (id) => await db.folders.get(id),
+                where: (field) => ({
+                    anyOf: (values) => ({
+                        toArray: async () => await db.folders.where(field).anyOf(values).toArray()
+                    }),
+                    equals: (value) => ({
+                        and: (predicate) => ({
+                            count: async () => await db.folders.where(field).equals(value).and(predicate).count()
+                        })
+                    })
+                })
+            }
+        };
+
+        const dbInitResult = await window.electronAPI.invoke('version-init-with-db', dbProxy);
+        if (!dbInitResult.success) {
+            console.error('Failed to initialize version services with database:', dbInitResult.error);
+            return false;
+        }
+
+        console.log('Version management services initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('Failed to initialize version management:', error);
+        return false;
+    }
+}
+
+// Handle version deletion using Chain of Responsibility pattern
+async function handleVersionDeletion(promptId) {
+    try {
+        console.log('Starting version deletion process for prompt:', promptId);
+
+        // Get version information first
+        const versionInfo = await window.electronAPI.invoke('version-get-info', promptId);
+        if (!versionInfo.success) {
+            if (versionInfo.requiresRendererInit) {
+                // Initialize version management if not already done
+                const initSuccess = await initializeVersionManagement();
+                if (!initSuccess) {
+                    alert('Failed to initialize version management system. Please try again.');
+                    return;
+                }
+                // Retry getting version info
+                const retryInfo = await window.electronAPI.invoke('version-get-info', promptId);
+                if (!retryInfo.success) {
+                    alert('Failed to get version information: ' + retryInfo.error);
+                    return;
+                }
+                Object.assign(versionInfo, retryInfo);
+            } else {
+                alert('Failed to get version information: ' + versionInfo.error);
+                return;
+            }
+        }
+
+        // Get dependencies information
+        const dependencies = await window.electronAPI.invoke('version-get-dependencies', promptId);
+        if (!dependencies.success) {
+            console.warn('Failed to get dependencies information:', dependencies.error);
+        }
+
+        // Show confirmation dialog with detailed information
+        const confirmMessage = createDeletionConfirmationMessage(versionInfo, dependencies);
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        // Show loading state
+        const loadingMessage = document.createElement('div');
+        loadingMessage.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50';
+        loadingMessage.textContent = 'Deleting version...';
+        document.body.appendChild(loadingMessage);
+
+        try {
+            // Perform deletion using Chain of Responsibility
+            const deletionOptions = {
+                deleteAllVersions: true, // For now, always delete all versions
+                cleanupOrphanedTags: true
+            };
+
+            const result = await window.electronAPI.invoke('version-delete', promptId, deletionOptions);
+
+            if (result.success) {
+                console.log('Version deletion completed successfully:', result);
+
+                // Show success message
+                loadingMessage.textContent = 'Version deleted successfully!';
+                loadingMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+
+                // Refresh the prompts display
+                await renderPrompts();
+
+                // Remove success message after delay
+                setTimeout(() => {
+                    if (loadingMessage.parentNode) {
+                        loadingMessage.parentNode.removeChild(loadingMessage);
+                    }
+                }, 2000);
+            } else {
+                console.error('Version deletion failed:', result);
+
+                // Show error message
+                loadingMessage.textContent = 'Deletion failed!';
+                loadingMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+
+                alert('Failed to delete version: ' + result.error);
+
+                // Remove error message after delay
+                setTimeout(() => {
+                    if (loadingMessage.parentNode) {
+                        loadingMessage.parentNode.removeChild(loadingMessage);
+                    }
+                }, 3000);
+            }
+        } catch (error) {
+            console.error('Version deletion error:', error);
+
+            // Show error message
+            loadingMessage.textContent = 'Deletion error!';
+            loadingMessage.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+
+            alert('Error during deletion: ' + error.message);
+
+            // Remove error message after delay
+            setTimeout(() => {
+                if (loadingMessage.parentNode) {
+                    loadingMessage.parentNode.removeChild(loadingMessage);
+                }
+            }, 3000);
+        }
+    } catch (error) {
+        console.error('Failed to handle version deletion:', error);
+        alert('Failed to delete version: ' + error.message);
+    }
+}
+
+// Create detailed confirmation message for deletion
+function createDeletionConfirmationMessage(versionInfo, dependencies) {
+    let message = `Are you sure you want to delete this prompt and all its history?\n\n`;
+
+    if (versionInfo.success) {
+        message += `Prompt: "${versionInfo.prompt.title}"\n`;
+        message += `Total versions: ${versionInfo.totalVersions}\n`;
+
+        if (versionInfo.totalVersions > 1) {
+            message += `This will delete ALL ${versionInfo.totalVersions} versions of this prompt.\n`;
+        }
+    }
+
+    if (dependencies.success && dependencies.dependencies) {
+        const deps = dependencies.dependencies;
+
+        if (deps.tags && deps.tags.orphanedTags && deps.tags.orphanedTags.length > 0) {
+            message += `\nWarning: ${deps.tags.orphanedTags.length} tag(s) will become orphaned and will be cleaned up:\n`;
+            deps.tags.orphanedTags.forEach(tag => {
+                message += `- ${tag.name}\n`;
+            });
+        }
+
+        if (deps.folders && deps.folders.emptyingFolders && deps.folders.emptyingFolders.length > 0) {
+            message += `\nNote: ${deps.folders.emptyingFolders.length} folder(s) will become empty but will be preserved.\n`;
+        }
+    }
+
+    message += `\nThis action cannot be undone.`;
+
+    return message;
+}
+
+// Initialize version management when the page loads
+document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize version management after a short delay to ensure other systems are ready
+    setTimeout(async () => {
+        await initializeVersionManagement();
+    }, 1000);
+});
 }
 
 // Initialize tag modal after DOM is loaded
