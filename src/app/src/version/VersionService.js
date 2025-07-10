@@ -7,6 +7,10 @@
  * Part of Version Management Architecture Epic - Task 1
  */
 
+import ValidationHandler from './handlers/ValidationHandler.js';
+import DependencyHandler from './handlers/DependencyHandler.js';
+import DeletionHandler from './handlers/DeletionHandler.js';
+
 class VersionService {
     constructor(database, stateManager) {
         this.db = database;
@@ -19,11 +23,6 @@ class VersionService {
      * Initialize the Chain of Responsibility for version deletion
      */
     initializeDeletionChain() {
-        // Import handlers
-        const ValidationHandler = require('./handlers/ValidationHandler');
-        const DependencyHandler = require('./handlers/DependencyHandler');
-        const DeletionHandler = require('./handlers/DeletionHandler');
-
         // Create handler instances
         const validationHandler = new ValidationHandler(this.db, this.stateManager);
         const dependencyHandler = new DependencyHandler(this.db, this.stateManager);
@@ -120,7 +119,7 @@ class VersionService {
      */
     async getVersionDependencies(promptId) {
         try {
-            const dependencyHandler = new (require('./handlers/DependencyHandler'))(this.db, this.stateManager);
+            const dependencyHandler = new DependencyHandler(this.db, this.stateManager);
 
             const context = { promptId };
             const dependencies = await dependencyHandler.checkDependencies(context);
