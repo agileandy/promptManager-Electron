@@ -29,10 +29,65 @@ async function initializeDatabase() {
         await db.open();
         console.log('Database initialized successfully in:', dataDir);
 
-        // Initialize SimpleTagManager for state isolation
-        const SimpleTagManager = require('./src/tags/SimpleTagManager');
-        tagOnlyManager = new SimpleTagManager(db);
-        console.log('SimpleTagManager initialized for state isolation');
+        // Note: SimpleTagManager will be loaded after database is ready
+        // Initialize tag-only functionality inline to avoid require issues
+        tagOnlyManager = {
+            async addTagToPrompt(promptId, tagPath) {
+                try {
+                    // Find or create the tag using existing createOrGetTag function
+                    const tag = await createOrGetTag(tagPath);
+
+                    // Check if tag is already assigned to this prompt
+                    const existingRelation = await db.promptTags
+                        .where('promptId').equals(promptId)
+                        .and(pt => pt.tagId === tag.id)
+                        .first();
+
+                    if (existingRelation) {
+                        console.log('Tag already assigned to prompt');
+                        return false;
+                    }
+
+                    // Add the tag-prompt relationship directly (no versioning)
+                    await db.promptTags.add({
+                        promptId: promptId,
+                        tagId: tag.id
+                    });
+
+                    console.log(`Tag "${tagPath}" added to prompt ${promptId} without creating version`);
+                    return true;
+
+                } catch (error) {
+                    console.error('Error adding tag to prompt:', error);
+                    throw error;
+                }
+            },
+
+            async replacePromptTags(promptId, tagPaths) {
+                try {
+                    // Remove all existing tag relationships for this prompt
+                    await db.promptTags.where('promptId').equals(promptId).delete();
+
+                    // Add new tag relationships
+                    for (const tagPath of tagPaths) {
+                        const tag = await createOrGetTag(tagPath);
+                        await db.promptTags.add({
+                            promptId: promptId,
+                            tagId: tag.id
+                        });
+                    }
+
+                    console.log(`Replaced tags for prompt ${promptId} without creating version`);
+                    return true;
+
+                } catch (error) {
+                    console.error('Error replacing prompt tags:', error);
+                    throw error;
+                }
+            }
+        };
+
+        console.log('Tag-only manager initialized for state isolation');
 
         // Test that existing tags are still accessible
         const existingTags = await db.tags.toArray();
