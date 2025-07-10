@@ -87,6 +87,9 @@
 
                     <!-- Right side: Action buttons -->
                     <div class="flex gap-2">
+                        <button id="tag-management-btn" class="bg-purple-500 hover:bg-purple-600 text-white rounded-lg px-4 py-2 transition-colors flex items-center gap-2" title="Manage Tags">
+                            <span>🏷️</span> Tags
+                        </button>
                         <button id="import-prompts" class="bg-green-500 hover:bg-green-600 text-white rounded-lg px-4 py-2 transition-colors flex items-center gap-2" title="Import Prompts">
                             <span>📥</span> Import
                         </button>
@@ -814,6 +817,203 @@
         </div>
     </div>
 
+<!-- Tag Management Modal -->
+    <div id="tag-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span>🏷️</span> Tag Management
+                </h2>
+                <button id="close-tag-modal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 overflow-y-auto max-h-[70vh]">
+                <!-- Create New Tag Section -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create New Tag</h3>
+                    <form id="create-tag-form" class="space-y-4">
+                        <div>
+                            <label for="new-tag-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Tag Name
+                            </label>
+                            <input
+                                type="text"
+                                id="new-tag-name"
+                                name="tagName"
+                                placeholder="Enter tag name (use / for hierarchy, e.g., coding/javascript)"
+                                class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            >
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Use "/" to create hierarchical tags (e.g., "coding/javascript/react")
+                            </p>
+                        </div>
+
+                        <div>
+                            <label for="new-tag-description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Description (Optional)
+                            </label>
+                            <textarea
+                                id="new-tag-description"
+                                name="description"
+                                rows="2"
+                                placeholder="Brief description of this tag's purpose"
+                                class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            ></textarea>
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button
+                                type="submit"
+                                class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                            >
+                                Create Tag
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Existing Tags Section -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Existing Tags</h3>
+                        <button
+                            id="refresh-tags-btn"
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                            title="Refresh tag list"
+                        >
+                            🔄 Refresh
+                        </button>
+                    </div>
+
+                    <!-- Search/Filter Tags -->
+                    <div class="mb-4">
+                        <input
+                            type="text"
+                            id="tag-search"
+                            placeholder="Search tags..."
+                            class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                    </div>
+
+                    <!-- Tags List Container -->
+                    <div id="tags-list-container" class="space-y-2 max-h-64 overflow-y-auto">
+                        <!-- Tags will be dynamically populated here -->
+                        <div id="tags-loading" class="text-center text-gray-500 dark:text-gray-400 py-4">
+                            Loading tags...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex justify-end items-center p-6 border-t border-gray-200 dark:border-gray-700">
+                <button
+                    id="close-tag-modal-footer"
+                    class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Item Template (Hidden) -->
+    <template id="tag-item-template">
+        <div class="tag-item flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <span class="tag-hierarchy-indicator text-gray-400 dark:text-gray-500"></span>
+                    <span class="tag-name font-medium text-gray-900 dark:text-white"></span>
+                    <span class="tag-usage-count text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full"></span>
+                </div>
+                <div class="tag-description text-sm text-gray-600 dark:text-gray-400 mt-1"></div>
+            </div>
+            <div class="flex items-center gap-2 ml-4">
+                <button class="rename-tag-btn text-yellow-600 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 p-1" title="Rename tag">
+                    ✏️
+                </button>
+                <button class="delete-tag-btn text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1" title="Delete tag">
+                    🗑️
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Rename Tag Modal -->
+    <div id="rename-tag-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rename Tag</h3>
+                <form id="rename-tag-form">
+                    <input type="hidden" id="rename-tag-id">
+                    <div class="mb-4">
+                        <label for="rename-tag-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            New Tag Name
+                        </label>
+                        <input
+                            type="text"
+                            id="rename-tag-name"
+                            name="newTagName"
+                            placeholder="Enter new tag name"
+                            class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        >
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button
+                            type="button"
+                            id="cancel-rename-btn"
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors"
+                        >
+                            Rename
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-tag-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">Delete Tag</h3>
+                <p class="text-gray-700 dark:text-gray-300 mb-4">
+                    Are you sure you want to delete the tag "<span id="delete-tag-name" class="font-semibold"></span>"?
+                </p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    This action cannot be undone. The tag will be removed from all prompts.
+                </p>
+                <div class="flex justify-end space-x-3">
+                    <button
+                        type="button"
+                        id="cancel-delete-btn"
+                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        id="confirm-delete-btn"
+                        class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                        Delete Tag
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="./src/renderer.js"></script>
 </body>
 </html>

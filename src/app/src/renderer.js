@@ -232,62 +232,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- Tag-Only Manager for State Isolation ---
-    // Initialize tag-only functionality after createOrGetTag is defined
-    tagOnlyManager = {
-        async addTagToPrompt(promptId, tagPath) {
-            try {
-                // Find or create the tag using existing createOrGetTag function
-                const tag = await createOrGetTag(tagPath);
-
-                // Check if tag is already assigned to this prompt
-                const existingRelation = await db.promptTags
-                    .where('promptId').equals(promptId)
-                    .and(pt => pt.tagId === tag.id)
-                    .first();
-
-                if (existingRelation) {
-                    console.log('Tag already assigned to prompt');
-                    return false;
-                }
-
-                // Add the tag-prompt relationship directly (no versioning)
-                await db.promptTags.add({
-                    promptId: promptId,
-                    tagId: tag.id
-                });
-
-                console.log(`Tag "${tagPath}" added to prompt ${promptId} without creating version`);
-                return true;
-
-            } catch (error) {
-                console.error('Error adding tag to prompt:', error);
-                throw error;
-            }
-        },
-
-        async replacePromptTags(promptId, tagPaths) {
-            try {
-                // Remove all existing tag relationships for this prompt
-                await db.promptTags.where('promptId').equals(promptId).delete();
-
-                // Add new tag relationships
-                for (const tagPath of tagPaths) {
-                    const tag = await createOrGetTag(tagPath);
-                    await db.promptTags.add({
-                        promptId: promptId,
-                        tagId: tag.id
-                    });
-                }
-
-                console.log(`Replaced tags for prompt ${promptId} without creating version`);
-                return true;
-
-            } catch (error) {
-                console.error('Error replacing prompt tags:', error);
-                throw error;
-            }
-        }
-    };
+    // Import and initialize the proper TagOnlyManager with command pattern
+    const { TagOnlyManager } = await import('./tags/index.js');
+    tagOnlyManager = new TagOnlyManager(db);
 
     console.log('Tag-only manager initialized for state isolation');
 
@@ -1965,3 +1912,273 @@ async function testProviderConnection(provider) {
         testBtn.classList.remove('opacity-50');
     }
 }
+
+// --- Tag Modal Management ---
+function initializeTagModal() {
+    const tagModal = document.getElementById('tag-modal');
+    const tagManagementBtn = document.getElementById('tag-management-btn');
+    const closeTagModalBtn = document.getElementById('close-tag-modal');
+    const closeTagModalFooterBtn = document.getElementById('close-tag-modal-footer');
+    const createTagForm = document.getElementById('create-tag-form');
+    const refreshTagsBtn = document.getElementById('refresh-tags-btn');
+    const tagSearchInput = document.getElementById('tag-search');
+    const tagsListContainer = document.getElementById('tags-list-container');
+
+    // Rename and delete modal elements
+    const renameTagModal = document.getElementById('rename-tag-modal');
+    const deleteTagModal = document.getElementById('delete-tag-modal');
+    const renameTagForm = document.getElementById('rename-tag-form');
+    const cancelRenameBtn = document.getElementById('cancel-rename-btn');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+    let currentTags = [];
+    let filteredTags = [];
+
+    // Open tag modal
+    tagManagementBtn.addEventListener('click', async () => {
+        tagModal.classList.remove('hidden');
+        await loadTagsList();
+    });
+
+    // Close tag modal
+    const closeTagModal = () => {
+        tagModal.classList.add('hidden');
+        // Clear form
+        createTagForm.reset();
+        tagSearchInput.value = '';
+    };
+
+    closeTagModalBtn.addEventListener('click', closeTagModal);
+    closeTagModalFooterBtn.addEventListener('click', closeTagModal);
+
+    // Close modal when clicking outside
+    tagModal.addEventListener('click', (e) => {
+        if (e.target === tagModal) {
+            closeTagModal();
+        }
+    });
+
+    // Create new tag
+    createTagForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const tagName = document.getElementById('new-tag-name').value.trim();
+        const description = document.getElementById('new-tag-description').value.trim();
+
+        if (!tagName) return;
+
+        try {
+            const result = await tagOnlyManager.createTag(tagName, description);
+
+            if (result.success) {
+                console.log('Tag created successfully:', result.tag);
+                createTagForm.reset();
+                await loadTagsList();
+                await renderTagTree(); // Refresh the sidebar tag tree
+            } else {
+                alert('Failed to create tag: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error creating tag:', error);
+            alert('Error creating tag: ' + error.message);
+        }
+    });
+
+    // Refresh tags list
+    refreshTagsBtn.addEventListener('click', async () => {
+        await loadTagsList();
+    });
+
+    // Search/filter tags
+    tagSearchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        filterTags(searchTerm);
+    });
+
+    // Load and display tags
+    async function loadTagsList() {
+        try {
+            const loadingDiv = document.getElementById('tags-loading');
+            loadingDiv.style.display = 'block';
+            loadingDiv.textContent = 'Loading tags...';
+
+            // Get all tags with usage counts
+            const allTags = await db.tags.orderBy('fullPath').toArray();
+
+            // Get usage counts for each tag
+            const tagsWithCounts = await Promise.all(allTags.map(async (tag) => {
+                const promptTagRelations = await db.promptTags.where('tagId').equals(tag.id).toArray();
+                const promptIds = promptTagRelations.map(pt => pt.promptId);
+                const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
+                const usageCount = latestPrompts.length;
+                return { ...tag, usageCount };
+            }));
+
+            currentTags = tagsWithCounts;
+            filteredTags = [...currentTags];
+
+            loadingDiv.style.display = 'none';
+            renderTagsList();
+        } catch (error) {
+            console.error('Error loading tags:', error);
+            const loadingDiv = document.getElementById('tags-loading');
+            loadingDiv.textContent = 'Error loading tags';
+        }
+    }
+
+    // Filter tags based on search term
+    function filterTags(searchTerm) {
+        if (!searchTerm) {
+            filteredTags = [...currentTags];
+        } else {
+            filteredTags = currentTags.filter(tag =>
+                tag.fullPath.toLowerCase().includes(searchTerm) ||
+                (tag.description && tag.description.toLowerCase().includes(searchTerm))
+            );
+        }
+        renderTagsList();
+    }
+
+    // Render the tags list
+    function renderTagsList() {
+        const template = document.getElementById('tag-item-template');
+        tagsListContainer.innerHTML = '';
+
+        if (filteredTags.length === 0) {
+            tagsListContainer.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400 py-4">No tags found</div>';
+            return;
+        }
+
+        filteredTags.forEach(tag => {
+            const tagElement = template.content.cloneNode(true);
+
+            // Set hierarchy indicator
+            const hierarchyIndicator = tagElement.querySelector('.tag-hierarchy-indicator');
+            const level = tag.level || 0;
+            hierarchyIndicator.textContent = '  '.repeat(level) + (level > 0 ? '└─ ' : '');
+
+            // Set tag name
+            const tagName = tagElement.querySelector('.tag-name');
+            tagName.textContent = tag.name;
+
+            // Set usage count
+            const usageCount = tagElement.querySelector('.tag-usage-count');
+            usageCount.textContent = tag.usageCount || 0;
+
+            // Set description
+            const tagDescription = tagElement.querySelector('.tag-description');
+            if (tag.description) {
+                tagDescription.textContent = tag.description;
+            } else {
+                tagDescription.style.display = 'none';
+            }
+
+            // Add event listeners for rename and delete buttons
+            const renameBtn = tagElement.querySelector('.rename-tag-btn');
+            const deleteBtn = tagElement.querySelector('.delete-tag-btn');
+
+            renameBtn.addEventListener('click', () => openRenameModal(tag));
+            deleteBtn.addEventListener('click', () => openDeleteModal(tag));
+
+            tagsListContainer.appendChild(tagElement);
+        });
+    }
+
+    // Open rename modal
+    function openRenameModal(tag) {
+        document.getElementById('rename-tag-id').value = tag.id;
+        document.getElementById('rename-tag-name').value = tag.fullPath;
+        renameTagModal.classList.remove('hidden');
+    }
+
+    // Open delete modal
+    function openDeleteModal(tag) {
+        document.getElementById('delete-tag-name').textContent = tag.fullPath;
+        confirmDeleteBtn.setAttribute('data-tag-id', tag.id);
+        confirmDeleteBtn.setAttribute('data-tag-path', tag.fullPath);
+        deleteTagModal.classList.remove('hidden');
+    }
+
+    // Close rename modal
+    const closeRenameModal = () => {
+        renameTagModal.classList.add('hidden');
+        renameTagForm.reset();
+    };
+
+    cancelRenameBtn.addEventListener('click', closeRenameModal);
+
+    // Close delete modal
+    const closeDeleteModal = () => {
+        deleteTagModal.classList.add('hidden');
+    };
+
+    cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+
+    // Handle rename form submission
+    renameTagForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const tagId = parseInt(document.getElementById('rename-tag-id').value);
+        const newTagName = document.getElementById('rename-tag-name').value.trim();
+
+        if (!newTagName) return;
+
+        try {
+            const result = await tagOnlyManager.renameTag(tagId, newTagName);
+
+            if (result.success) {
+                console.log('Tag renamed successfully');
+                closeRenameModal();
+                await loadTagsList();
+                await renderTagTree(); // Refresh the sidebar tag tree
+            } else {
+                alert('Failed to rename tag: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error renaming tag:', error);
+            alert('Error renaming tag: ' + error.message);
+        }
+    });
+
+    // Handle delete confirmation
+    confirmDeleteBtn.addEventListener('click', async () => {
+        const tagId = parseInt(confirmDeleteBtn.getAttribute('data-tag-id'));
+        const tagPath = confirmDeleteBtn.getAttribute('data-tag-path');
+
+        try {
+            const result = await tagOnlyManager.deleteTag(tagId);
+
+            if (result.success) {
+                console.log('Tag deleted successfully');
+                closeDeleteModal();
+                await loadTagsList();
+                await renderTagTree(); // Refresh the sidebar tag tree
+            } else {
+                alert('Failed to delete tag: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Error deleting tag:', error);
+            alert('Error deleting tag: ' + error.message);
+        }
+    });
+
+    // Close modals when clicking outside
+    renameTagModal.addEventListener('click', (e) => {
+        if (e.target === renameTagModal) {
+            closeRenameModal();
+        }
+    });
+
+    deleteTagModal.addEventListener('click', (e) => {
+        if (e.target === deleteTagModal) {
+            closeDeleteModal();
+        }
+    });
+}
+
+// Initialize tag modal after DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Wait for the main initialization to complete
+    setTimeout(() => {
+        initializeTagModal();
+    }, 100);
+});
