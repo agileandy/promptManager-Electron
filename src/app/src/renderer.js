@@ -6,6 +6,9 @@ let dataDir;
 let aiService = null;
 let aiConfig = null;
 
+// Tag-only manager for state isolation
+let tagOnlyManager = null;
+
 // Initialize database with common data directory
 async function initializeDatabase() {
     try {
@@ -25,6 +28,12 @@ async function initializeDatabase() {
 
         await db.open();
         console.log('Database initialized successfully in:', dataDir);
+
+        // Initialize TagOnlyManager for state isolation
+        const TagOnlyManager = require('./src/tags/TagOnlyManager');
+        tagOnlyManager = new TagOnlyManager(db);
+        console.log('TagOnlyManager initialized for state isolation');
+
         return true;
     } catch (e) {
         console.error('Dexie open failed:', e);
@@ -859,29 +868,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const promptId = Number(editBtn.dataset.id);
 
                 try {
-                    // Check if tag is already assigned to this prompt
-                    const existingRelation = await db.promptTags
-                        .where('promptId').equals(promptId)
-                        .and(pt => pt.tagId === Number(draggedTagId))
-                        .first();
+                    // Use TagOnlyManager for state isolation (no version creation)
+                    const success = await tagOnlyManager.addTagToPrompt(promptId, draggedTagPath);
 
-                    if (existingRelation) {
+                    if (success) {
+                        // Show success feedback
+                        showTagAssignmentFeedback(promptCard, 'Tag assigned successfully (no version created)', 'success');
+                    } else {
                         // Show brief visual feedback for duplicate
                         showTagAssignmentFeedback(promptCard, 'Tag already assigned', 'warning');
-                        return;
                     }
-
-                    // Create or get the tag (should already exist)
-                    const tag = await createOrGetTag(draggedTagPath);
-
-                    // Add the tag-prompt relationship
-                    await db.promptTags.add({
-                        promptId: promptId,
-                        tagId: tag.id
-                    });
-
-                    // Show success feedback
-                    showTagAssignmentFeedback(promptCard, 'Tag assigned successfully', 'success');
 
                     // Refresh the UI
                     await renderPrompts();
@@ -1047,35 +1043,56 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            // Mark the old version as not the latest
-            await db.prompts.update(originalPromptId, { isLatest: 0 });
+            // Check if only tags have changed (content unchanged)
+            const contentChanged = (
+                title !== originalPrompt.title ||
+                description !== originalPrompt.description ||
+                text !== originalPrompt.text
+            );
 
-            // Remove old tag relationships from the old version
-            await db.promptTags.where('promptId').equals(originalPromptId).delete();
+            if (!contentChanged) {
+                // Only tags changed - use TagOnlyManager (no version creation)
+                console.log('Only tags changed - updating without creating new version');
 
-            // Add the new version
-            const newPromptId = await db.prompts.add({
-                title,
-                description,
-                text,
-                version: (originalPrompt.version || 1) + 1,
-                isLatest: 1,
-                parentId: originalPrompt.parentId || originalPromptId,
-                createdAt: new Date(), // New version gets a new creation date
-                lastUsedAt: originalPrompt.lastUsedAt,
-                timesUsed: originalPrompt.timesUsed
-            });
+                const tagPaths = Array.from(currentEditTags);
+                await tagOnlyManager.replacePromptTags(originalPromptId, tagPaths);
 
-            // Handle tags for the new version
-            for (const tagPath of currentEditTags) {
-                const tag = await createOrGetTag(tagPath);
-                await db.promptTags.add({
-                    promptId: newPromptId,
-                    tagId: tag.id
+                console.log(`Tags updated for prompt ${originalPromptId} without creating version.`);
+            } else {
+                // Content changed - create new version (existing behavior)
+                console.log('Content changed - creating new version');
+
+                // Mark the old version as not the latest
+                await db.prompts.update(originalPromptId, { isLatest: 0 });
+
+                // Remove old tag relationships from the old version
+                await db.promptTags.where('promptId').equals(originalPromptId).delete();
+
+                // Add the new version
+                const newPromptId = await db.prompts.add({
+                    title,
+                    description,
+                    text,
+                    version: (originalPrompt.version || 1) + 1,
+                    isLatest: 1,
+                    parentId: originalPrompt.parentId || originalPromptId,
+                    createdAt: new Date(), // New version gets a new creation date
+                    lastUsedAt: originalPrompt.lastUsedAt,
+                    timesUsed: originalPrompt.timesUsed
                 });
+
+                // Handle tags for the new version
+                for (const tagPath of currentEditTags) {
+                    const tag = await createOrGetTag(tagPath);
+                    await db.promptTags.add({
+                        promptId: newPromptId,
+                        tagId: tag.id
+                    });
+                }
+
+                console.log(`Prompt ${originalPromptId} updated to a new version.`);
             }
 
-            console.log(`Prompt ${originalPromptId} updated to a new version.`);
             currentEditTags.clear();
             editSelectedTagsContainer.innerHTML = '';
             hideModal(editPromptModal);
