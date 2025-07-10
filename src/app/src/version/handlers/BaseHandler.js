@@ -90,4 +90,4 @@ class BaseHandler {
     }
 }
 
-module.exports = BaseHandler;
+export default BaseHandler;

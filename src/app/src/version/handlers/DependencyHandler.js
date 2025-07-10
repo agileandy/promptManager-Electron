@@ -5,7 +5,7 @@
  * Checks for dependencies and referential integrity before allowing deletion.
  */
 
-const BaseHandler = require('./BaseHandler');
+import BaseHandler from './BaseHandler.js';
 
 class DependencyHandler extends BaseHandler {
     /**
@@ -264,4 +264,4 @@ class DependencyHandler extends BaseHandler {
     }
 }
 
-module.exports = DependencyHandler;
+export default DependencyHandler;

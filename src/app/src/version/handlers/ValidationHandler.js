@@ -5,7 +5,7 @@
  * Performs validation checks before allowing deletion to proceed.
  */
 
-const BaseHandler = require('./BaseHandler');
+import BaseHandler from './BaseHandler.js';
 
 class ValidationHandler extends BaseHandler {
     /**
@@ -194,4 +194,4 @@ class ValidationHandler extends BaseHandler {
     }
 }
 
-module.exports = ValidationHandler;
+export default ValidationHandler;

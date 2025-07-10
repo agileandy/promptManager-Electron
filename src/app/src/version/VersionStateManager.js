@@ -407,4 +407,4 @@ class VersionStateManager {
     }
 }
 
-module.exports = { VersionStateManager };
+export { VersionStateManager };

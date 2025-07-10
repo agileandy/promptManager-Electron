@@ -5,19 +5,19 @@
  * Part of Version Management Architecture Epic - Task 1
  */
 
-const { VersionService } = require('./VersionService');
-const { VersionStateManager } = require('./VersionStateManager');
+import { VersionService } from './VersionService.js';
+import { VersionStateManager } from './VersionStateManager.js';
 
 // Handler exports
-const BaseHandler = require('./handlers/BaseHandler');
-const ValidationHandler = require('./handlers/ValidationHandler');
-const DependencyHandler = require('./handlers/DependencyHandler');
-const DeletionHandler = require('./handlers/DeletionHandler');
+import BaseHandler from './handlers/BaseHandler.js';
+import ValidationHandler from './handlers/ValidationHandler.js';
+import DependencyHandler from './handlers/DependencyHandler.js';
+import DeletionHandler from './handlers/DeletionHandler.js';
 
 // Simple version management
-const SimpleVersionManager = require('./SimpleVersionManager');
+import * as SimpleVersionManager from './SimpleVersionManager.js';
 
-module.exports = {
+export {
     // Main service classes
     VersionService,
     VersionStateManager,

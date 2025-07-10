@@ -5,7 +5,7 @@
  * Performs the actual deletion operations with atomicity and referential integrity.
  */
 
-const BaseHandler = require('./BaseHandler');
+import BaseHandler from './BaseHandler.js';
 
 class DeletionHandler extends BaseHandler {
     /**
@@ -297,4 +297,4 @@ class DeletionHandler extends BaseHandler {
     }
 }
 
-module.exports = DeletionHandler;
+export default DeletionHandler;

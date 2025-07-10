@@ -136,4 +136,4 @@ class VersionService {
     }
 }
 
-module.exports = { VersionService };
+export { VersionService };

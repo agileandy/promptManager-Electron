@@ -124,8 +124,8 @@ async function deletePromptVersion(db, versionId) {
     }
 }
 
-// Export the functions using CommonJS
-module.exports = {
+// Export the functions using ES modules
+export {
     deletePromptWithResequencing,
     resequenceAllVersions,
     deletePromptVersion
