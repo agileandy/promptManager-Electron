@@ -114,20 +114,35 @@ async function initializeVersionService() {
         console.log('Initializing VersionService and VersionStateManager...');
 
         // Import the required modules
-        const { VersionService } = await import('./version/VersionService.js');
-        const { VersionStateManager } = await import('./version/VersionStateManager.js');
+        console.log('Importing VersionService...');
+        const versionServiceModule = await import('./version/VersionService.js');
+        console.log('VersionService module imported:', versionServiceModule);
+
+        console.log('Importing VersionStateManager...');
+        const versionStateManagerModule = await import('./version/VersionStateManager.js');
+        console.log('VersionStateManager module imported:', versionStateManagerModule);
+
+        const { VersionService } = versionServiceModule;
+        const { VersionStateManager } = versionStateManagerModule;
+
+        console.log('VersionService class:', VersionService);
+        console.log('VersionStateManager class:', VersionStateManager);
 
         // Initialize the state manager first
         versionStateManager = new VersionStateManager(db);
+        console.log('VersionStateManager instance created:', versionStateManager);
         await versionStateManager.initialize();
+        console.log('VersionStateManager initialized');
 
         // Then initialize the version service with the state manager
         versionService = new VersionService(db, versionStateManager);
+        console.log('VersionService instance created:', versionService);
 
         console.log('VersionService and VersionStateManager initialized successfully');
         return true;
     } catch (error) {
         console.error('Failed to initialize version service:', error);
+        console.error('Error details:', error.stack);
         return false;
     }
 }
@@ -364,13 +379,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function loadPromptForViewing(promptId) {
         try {
+            console.log('Loading prompt for viewing, promptId:', promptId);
+            console.log('versionService:', versionService);
+
             if (!versionService) {
                 console.error('Version service not initialized');
                 return;
             }
 
+            console.log('Calling versionService.getVersionInfo...');
             // Get version info using the version service
             const versionInfo = await versionService.getVersionInfo(promptId);
+            console.log('versionInfo result:', versionInfo);
+
             if (!versionInfo.success) {
                 console.error('Failed to get version info:', versionInfo.error);
                 return;
@@ -378,20 +399,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Store the current versions and set the current index
             currentVersions = versionInfo.allVersions.sort((a, b) => a.version - b.version);
+            console.log('currentVersions:', currentVersions);
+
             const currentVersion = versionInfo.prompt;
+            console.log('currentVersion:', currentVersion);
+
             currentVersionIndex = currentVersions.findIndex(v => v.id === currentVersion.id);
+            console.log('currentVersionIndex:', currentVersionIndex);
+
             currentViewingPrompt = currentVersion;
 
             // Update the UI with the prompt details
+            console.log('Updating viewer UI...');
             updateViewerUI(currentVersion, currentVersionIndex, currentVersions.length);
 
             // Load tags for the prompt
+            console.log('Loading prompt tags...');
             await loadPromptTagsForViewer(currentVersion.id);
 
             // Update navigation buttons state
+            console.log('Updating version navigation buttons...');
             updateVersionNavigationButtons();
+
+            console.log('Prompt loaded for viewing successfully');
         } catch (error) {
             console.error('Error loading prompt for viewing:', error);
+            console.error('Error details:', error.stack);
         }
     }
 
