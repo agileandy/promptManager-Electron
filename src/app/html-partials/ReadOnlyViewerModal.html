@@ -1,0 +1,88 @@
+<!-- Read-Only Prompt Viewer Modal -->
+<div id="read-only-viewer-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl max-h-[90vh] w-full mx-4 flex flex-col">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span>📝</span> <span id="viewer-prompt-title">Prompt Viewer</span>
+            </h2>
+            <div class="flex items-center gap-3">
+                <span id="viewer-version-badge" class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium px-2.5 py-0.5 rounded">Version 1</span>
+                <button id="close-viewer-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl">
+                    ✕
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <!-- Prompt Details -->
+            <div class="space-y-6">
+                <!-- Description -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Description</h3>
+                    <div id="viewer-prompt-description" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-gray-900 dark:text-white">
+                        <!-- Description content will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Prompt Text -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">Prompt Text</h3>
+                        <button id="viewer-copy-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors" title="Copy prompt text">
+                            <span>📋</span>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                    <div id="viewer-prompt-text" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-gray-900 dark:text-white font-mono whitespace-pre-wrap min-h-[200px] max-h-[400px] overflow-y-auto">
+                        <!-- Prompt text content will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Tags</h3>
+                    <div id="viewer-prompt-tags" class="flex flex-wrap gap-2">
+                        <!-- Tags will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Metadata -->
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <h3 class="font-medium text-gray-500 dark:text-gray-400 mb-1">Created</h3>
+                        <div id="viewer-created-at" class="text-gray-900 dark:text-white"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-500 dark:text-gray-400 mb-1">Last Used</h3>
+                        <div id="viewer-last-used" class="text-gray-900 dark:text-white"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-500 dark:text-gray-400 mb-1">Times Used</h3>
+                        <div id="viewer-times-used" class="text-gray-900 dark:text-white"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-500 dark:text-gray-400 mb-1">Parent ID</h3>
+                        <div id="viewer-parent-id" class="text-gray-900 dark:text-white"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex items-center gap-2">
+                <button id="viewer-prev-version-btn" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    ← Previous Version
+                </button>
+                <button id="viewer-next-version-btn" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    Next Version →
+                </button>
+            </div>
+            <button id="viewer-close-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
