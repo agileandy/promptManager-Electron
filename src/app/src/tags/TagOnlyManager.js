@@ -210,8 +210,20 @@ class TagOnlyManager {
      * @returns {Promise<Object>} Tag object
      */
     async _findOrCreateTag(tagPath) {
-        // Try to find existing tag
+        // Try to find existing tag by fullPath first
         let tag = await this.db.tags.where('fullPath').equals(tagPath).first();
+
+        if (!tag) {
+            // Try to find by name as fallback for existing tags
+            const tagName = tagPath.split('/').pop();
+            tag = await this.db.tags.where('name').equals(tagName).first();
+
+            if (tag) {
+                // Update existing tag with fullPath if missing
+                await this.db.tags.update(tag.id, { fullPath: tagPath });
+                tag.fullPath = tagPath;
+            }
+        }
 
         if (!tag) {
             // Create new tag if it doesn't exist

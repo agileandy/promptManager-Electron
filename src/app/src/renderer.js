@@ -29,10 +29,14 @@ async function initializeDatabase() {
         await db.open();
         console.log('Database initialized successfully in:', dataDir);
 
-        // Initialize TagOnlyManager for state isolation
-        const TagOnlyManager = require('./src/tags/TagOnlyManager');
-        tagOnlyManager = new TagOnlyManager(db);
-        console.log('TagOnlyManager initialized for state isolation');
+        // Initialize SimpleTagManager for state isolation
+        const SimpleTagManager = require('./src/tags/SimpleTagManager');
+        tagOnlyManager = new SimpleTagManager(db);
+        console.log('SimpleTagManager initialized for state isolation');
+
+        // Test that existing tags are still accessible
+        const existingTags = await db.tags.toArray();
+        console.log(`Found ${existingTags.length} existing tags in database`);
 
         return true;
     } catch (e) {
