@@ -12,6 +12,10 @@ let tagOnlyManager = null;
 // Simple version manager for version resequencing
 let simpleVersionManager = null;
 
+// Version service for read-only viewer
+let versionService = null;
+let versionStateManager = null;
+
 // Initialize database with common data directory
 async function initializeDatabase() {
     try {
@@ -87,6 +91,47 @@ async function initializeAIService() {
 }
 
 
+// Load the read-only viewer modal HTML
+async function loadReadOnlyViewerModal() {
+    try {
+        const response = await fetch('./html-partials/ReadOnlyViewerModal.html');
+        if (!response.ok) {
+            throw new Error(`Failed to load ReadOnlyViewerModal.html: ${response.status}`);
+        }
+        const html = await response.text();
+        document.getElementById('read-only-viewer-modal-container').innerHTML = html;
+        console.log('Read-only viewer modal loaded successfully');
+        return true;
+    } catch (error) {
+        console.error('Failed to load read-only viewer modal:', error);
+        return false;
+    }
+}
+
+// Initialize version service for read-only viewer
+async function initializeVersionService() {
+    try {
+        console.log('Initializing VersionService and VersionStateManager...');
+
+        // Import the required modules
+        const { VersionService } = await import('./version/VersionService.js');
+        const { VersionStateManager } = await import('./version/VersionStateManager.js');
+
+        // Initialize the state manager first
+        versionStateManager = new VersionStateManager(db);
+        await versionStateManager.initialize();
+
+        // Then initialize the version service with the state manager
+        versionService = new VersionService(db, versionStateManager);
+
+        console.log('VersionService and VersionStateManager initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('Failed to initialize version service:', error);
+        return false;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Initialize database first
     const dbInitialized = await initializeDatabase();
@@ -97,6 +142,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize AI service
     await initializeAIService();
+
+    // Initialize version service
+    await initializeVersionService();
+
+    // Load the read-only viewer modal
+    await loadReadOnlyViewerModal();
 
     // Initialize AI settings modal
     initializeAISettingsModal();
@@ -285,10 +336,198 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // --- Read-Only Viewer Modal Control ---
+    let currentViewingPrompt = null;
+    let currentVersions = [];
+    let currentVersionIndex = 0;
+
+    function showReadOnlyViewer(promptId) {
+        const viewerModal = document.getElementById('read-only-viewer-modal');
+        if (!viewerModal) {
+            console.error('Read-only viewer modal not found');
+            return;
+        }
+
+        loadPromptForViewing(promptId);
+        showModal(viewerModal);
+    }
+
+    function hideReadOnlyViewer() {
+        const viewerModal = document.getElementById('read-only-viewer-modal');
+        if (viewerModal) {
+            hideModal(viewerModal);
+            currentViewingPrompt = null;
+            currentVersions = [];
+            currentVersionIndex = 0;
+        }
+    }
+
+    async function loadPromptForViewing(promptId) {
+        try {
+            if (!versionService) {
+                console.error('Version service not initialized');
+                return;
+            }
+
+            // Get version info using the version service
+            const versionInfo = await versionService.getVersionInfo(promptId);
+            if (!versionInfo.success) {
+                console.error('Failed to get version info:', versionInfo.error);
+                return;
+            }
+
+            // Store the current versions and set the current index
+            currentVersions = versionInfo.allVersions.sort((a, b) => a.version - b.version);
+            const currentVersion = versionInfo.prompt;
+            currentVersionIndex = currentVersions.findIndex(v => v.id === currentVersion.id);
+            currentViewingPrompt = currentVersion;
+
+            // Update the UI with the prompt details
+            updateViewerUI(currentVersion, currentVersionIndex, currentVersions.length);
+
+            // Load tags for the prompt
+            await loadPromptTagsForViewer(currentVersion.id);
+
+            // Update navigation buttons state
+            updateVersionNavigationButtons();
+        } catch (error) {
+            console.error('Error loading prompt for viewing:', error);
+        }
+    }
+
+    async function loadPromptTagsForViewer(promptId) {
+        try {
+            // Get tags for the prompt
+            const promptTagRelations = await db.promptTags.where('promptId').equals(promptId).toArray();
+            const tagIds = promptTagRelations.map(relation => relation.tagId);
+            const tags = await db.tags.where('id').anyOf(tagIds).toArray();
+
+            // Update the tags container
+            const tagsContainer = document.getElementById('viewer-prompt-tags');
+            tagsContainer.innerHTML = '';
+
+            if (tags.length === 0) {
+                tagsContainer.innerHTML = '<span class="text-gray-500 dark:text-gray-400">No tags</span>';
+                return;
+            }
+
+            // Add each tag to the container
+            tags.forEach(tag => {
+                const tagElement = document.createElement('span');
+                tagElement.className = 'inline-flex items-center bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300';
+                tagElement.textContent = tag.fullPath;
+                tagsContainer.appendChild(tagElement);
+            });
+        } catch (error) {
+            console.error('Error loading tags for viewer:', error);
+        }
+    }
+
+    function updateViewerUI(prompt, versionIndex, totalVersions) {
+        // Update title
+        document.getElementById('viewer-prompt-title').textContent = prompt.title;
+
+        // Update version badge
+        document.getElementById('viewer-version-badge').textContent = `Version ${prompt.version}`;
+
+        // Update description
+        document.getElementById('viewer-prompt-description').textContent = prompt.description || 'No description';
+
+        // Update prompt text
+        document.getElementById('viewer-prompt-text').textContent = prompt.text;
+
+        // Update metadata
+        document.getElementById('viewer-created-at').textContent = new Date(prompt.createdAt).toLocaleString();
+        document.getElementById('viewer-last-used').textContent = prompt.lastUsedAt ? new Date(prompt.lastUsedAt).toLocaleString() : 'Never';
+        document.getElementById('viewer-times-used').textContent = prompt.timesUsed || 0;
+        document.getElementById('viewer-parent-id').textContent = prompt.parentId || prompt.id;
+    }
+
+    function updateVersionNavigationButtons() {
+        const prevButton = document.getElementById('viewer-prev-version-btn');
+        const nextButton = document.getElementById('viewer-next-version-btn');
+
+        // Disable previous button if we're at the first version
+        prevButton.disabled = currentVersionIndex <= 0;
+
+        // Disable next button if we're at the last version
+        nextButton.disabled = currentVersionIndex >= currentVersions.length - 1;
+    }
+
+    function navigateToVersion(direction) {
+        const newIndex = currentVersionIndex + direction;
+
+        // Check if the new index is valid
+        if (newIndex < 0 || newIndex >= currentVersions.length) {
+            return;
+        }
+
+        // Update the current index and prompt
+        currentVersionIndex = newIndex;
+        currentViewingPrompt = currentVersions[currentVersionIndex];
+
+        // Update the UI
+        updateViewerUI(currentViewingPrompt, currentVersionIndex, currentVersions.length);
+        loadPromptTagsForViewer(currentViewingPrompt.id);
+        updateVersionNavigationButtons();
+    }
+
     newPromptBtn.addEventListener('click', () => showModal(newPromptModal));
     cancelPromptBtn.addEventListener('click', () => hideModal(newPromptModal));
     cancelEditBtn.addEventListener('click', () => hideModal(editPromptModal));
     closeHistoryBtn.addEventListener('click', () => hideModal(historyModal));
+
+    // --- Read-Only Viewer Event Listeners ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // These listeners need to be set up after the modal is loaded
+        setTimeout(() => {
+            const closeViewerBtn = document.getElementById('close-viewer-btn');
+            const viewerCloseBtn = document.getElementById('viewer-close-btn');
+            const prevVersionBtn = document.getElementById('viewer-prev-version-btn');
+            const nextVersionBtn = document.getElementById('viewer-next-version-btn');
+            const viewerCopyBtn = document.getElementById('viewer-copy-btn');
+
+            if (closeViewerBtn) closeViewerBtn.addEventListener('click', hideReadOnlyViewer);
+            if (viewerCloseBtn) viewerCloseBtn.addEventListener('click', hideReadOnlyViewer);
+            if (prevVersionBtn) prevVersionBtn.addEventListener('click', () => navigateToVersion(-1));
+            if (nextVersionBtn) nextVersionBtn.addEventListener('click', () => navigateToVersion(1));
+
+            if (viewerCopyBtn) {
+                viewerCopyBtn.addEventListener('click', async () => {
+                    if (!currentViewingPrompt) return;
+
+                    try {
+                        await navigator.clipboard.writeText(currentViewingPrompt.text);
+
+                        // Update the button text temporarily
+                        const originalText = viewerCopyBtn.innerHTML;
+                        viewerCopyBtn.innerHTML = '<span>✓</span><span>Copied!</span>';
+
+                        // Increment usage count
+                        await db.prompts.update(currentViewingPrompt.id, {
+                            timesUsed: (currentViewingPrompt.timesUsed || 0) + 1,
+                            lastUsedAt: new Date()
+                        });
+
+                        // Update the current viewing prompt
+                        currentViewingPrompt.timesUsed = (currentViewingPrompt.timesUsed || 0) + 1;
+                        currentViewingPrompt.lastUsedAt = new Date();
+
+                        // Update the UI
+                        updateViewerUI(currentViewingPrompt, currentVersionIndex, currentVersions.length);
+
+                        // Reset button text after a delay
+                        setTimeout(() => {
+                            viewerCopyBtn.innerHTML = originalText;
+                        }, 2000);
+                    } catch (error) {
+                        console.error('Failed to copy prompt text:', error);
+                    }
+                });
+            }
+        }, 500); // Give time for the modal to be loaded
+    });
+
 // --- AI Button Elements ---
     const aiGenerateBtn = document.getElementById('ai-generate-btn');
     const aiOptimizeBtn = document.getElementById('ai-optimize-btn');
@@ -1199,6 +1438,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <p><strong>Created:</strong> ${new Date(prompt.createdAt).toLocaleDateString()}</p>
                     </div>
                     <div class="flex justify-end border-t pt-2 border-gray-200 dark:border-gray-700">
+                        <button data-id="${prompt.id}" class="view-prompt-btn text-sm text-purple-500 hover:text-purple-700 mr-4" title="View (Read-only)">&#128065;</button>
                         <button data-id="${prompt.id}" class="copy-prompt-btn text-sm text-green-500 hover:text-green-700 mr-4" title="Copy to Clipboard">&#128203;</button>
                         <button data-id="${prompt.id}" class="edit-prompt-btn text-blue-500 hover:text-blue-700 mr-4" title="Edit">&#9998;</button>
                         <button data-id="${prompt.id}" class="delete-prompt-btn text-red-500 hover:text-red-700" title="Delete">&#128465;</button>
@@ -1258,6 +1498,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.error('Failed to copy prompt to clipboard:', err);
                 }
             }
+        } else if (target.classList.contains('view-prompt-btn')) {
+            const promptId = Number(target.dataset.id);
+            showReadOnlyViewer(promptId);
         } else if (target.classList.contains('delete-prompt-btn')) {
             const promptId = Number(target.dataset.id);
             if (confirm('Are you sure you want to delete this prompt and all its history? This action cannot be undone.')) {
