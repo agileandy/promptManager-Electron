@@ -101,10 +101,6 @@ async function loadReadOnlyViewerModal() {
         const html = await response.text();
         document.getElementById('read-only-viewer-modal-container').innerHTML = html;
         console.log('Read-only viewer modal loaded successfully');
-
-        // Set up event listeners for the read-only viewer buttons
-        setupReadOnlyViewerEventListeners();
-
         return true;
     } catch (error) {
         console.error('Failed to load read-only viewer modal:', error);
@@ -112,8 +108,63 @@ async function loadReadOnlyViewerModal() {
     }
 }
 
-// Set up event listeners for the read-only viewer buttons
-function setupReadOnlyViewerEventListeners() {
+// Initialize version service for read-only viewer
+async function initializeVersionService() {
+    try {
+        console.log('Initializing VersionService and VersionStateManager...');
+
+        // Import the required modules
+        console.log('Importing VersionService...');
+        const versionServiceModule = await import('./version/VersionService.js');
+        console.log('VersionService module imported:', versionServiceModule);
+
+        console.log('Importing VersionStateManager...');
+        const versionStateManagerModule = await import('./version/VersionStateManager.js');
+        console.log('VersionStateManager module imported:', versionStateManagerModule);
+
+        const { VersionService } = versionServiceModule;
+        const { VersionStateManager } = versionStateManagerModule;
+
+        console.log('VersionService class:', VersionService);
+        console.log('VersionStateManager class:', VersionStateManager);
+
+        // Initialize the state manager first
+        versionStateManager = new VersionStateManager(db);
+        console.log('VersionStateManager instance created:', versionStateManager);
+        await versionStateManager.initialize();
+        console.log('VersionStateManager initialized');
+
+        // Then initialize the version service with the state manager
+        versionService = new VersionService(db, versionStateManager);
+        console.log('VersionService instance created:', versionService);
+
+        console.log('VersionService and VersionStateManager initialized successfully');
+        return true;
+    } catch (error) {
+        console.error('Failed to initialize version service:', error);
+        console.error('Error details:', error.stack);
+        return false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize database first
+    const dbInitialized = await initializeDatabase();
+    if (!dbInitialized) {
+        console.error('Failed to initialize database');
+        return;
+    }
+
+    // Initialize AI service
+    await initializeAIService();
+
+    // Initialize version service
+    await initializeVersionService();
+
+    // Load the read-only viewer modal
+    await loadReadOnlyViewerModal();
+
+    // Set up event listeners for the read-only viewer buttons
     console.log('Setting up read-only viewer event listeners');
 
     // Close buttons
@@ -175,63 +226,6 @@ function setupReadOnlyViewerEventListeners() {
     } else {
         console.error('viewer-next-version-btn not found');
     }
-}
-
-// Initialize version service for read-only viewer
-async function initializeVersionService() {
-    try {
-        console.log('Initializing VersionService and VersionStateManager...');
-
-        // Import the required modules
-        console.log('Importing VersionService...');
-        const versionServiceModule = await import('./version/VersionService.js');
-        console.log('VersionService module imported:', versionServiceModule);
-
-        console.log('Importing VersionStateManager...');
-        const versionStateManagerModule = await import('./version/VersionStateManager.js');
-        console.log('VersionStateManager module imported:', versionStateManagerModule);
-
-        const { VersionService } = versionServiceModule;
-        const { VersionStateManager } = versionStateManagerModule;
-
-        console.log('VersionService class:', VersionService);
-        console.log('VersionStateManager class:', VersionStateManager);
-
-        // Initialize the state manager first
-        versionStateManager = new VersionStateManager(db);
-        console.log('VersionStateManager instance created:', versionStateManager);
-        await versionStateManager.initialize();
-        console.log('VersionStateManager initialized');
-
-        // Then initialize the version service with the state manager
-        versionService = new VersionService(db, versionStateManager);
-        console.log('VersionService instance created:', versionService);
-
-        console.log('VersionService and VersionStateManager initialized successfully');
-        return true;
-    } catch (error) {
-        console.error('Failed to initialize version service:', error);
-        console.error('Error details:', error.stack);
-        return false;
-    }
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize database first
-    const dbInitialized = await initializeDatabase();
-    if (!dbInitialized) {
-        console.error('Failed to initialize database');
-        return;
-    }
-
-    // Initialize AI service
-    await initializeAIService();
-
-    // Initialize version service
-    await initializeVersionService();
-
-    // Load the read-only viewer modal
-    await loadReadOnlyViewerModal();
 
     // Initialize AI settings modal
     initializeAISettingsModal();
