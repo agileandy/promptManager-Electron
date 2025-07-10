@@ -14,6 +14,9 @@ const ValidationHandler = require('./handlers/ValidationHandler');
 const DependencyHandler = require('./handlers/DependencyHandler');
 const DeletionHandler = require('./handlers/DeletionHandler');
 
+// Simple version management
+const SimpleVersionManager = require('./SimpleVersionManager');
+
 module.exports = {
     // Main service classes
     VersionService,
@@ -23,5 +26,8 @@ module.exports = {
     BaseHandler,
     ValidationHandler,
     DependencyHandler,
-    DeletionHandler
+    DeletionHandler,
+
+    // Simple version management
+    SimpleVersionManager
 };
