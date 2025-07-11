@@ -13,52 +13,46 @@ function runResponseSanitizationTest() {
     const chainManager = new DecoratorChainManager();
 
     // Create sanitization decorators with different configurations
-    const standardSanitizer = new ResponseSanitizationDecorator({
-        sanitizationLevel: 'standard'
+    const standardDecorator = new ResponseSanitizationDecorator();
+
+    const customDecorator = new ResponseSanitizationDecorator({
+        xmlTagsToRemove: ['think', 'reasoning', 'custom'],
+        removeCodeBlocks: false
     });
 
-    const aggressiveSanitizer = new ResponseSanitizationDecorator({
-        sanitizationLevel: 'aggressive'
-    });
-
-    // Example LLM responses with explanatory text
+    // Example LLM responses with XML tags
     const examples = [
         {
-            name: "Standard explanation pattern",
-            response: `Here's a thinking process that could lead to the prompt:
-
-First, I need to consider what makes a good prompt for creative writing.
-Then, I should structure it with clear instructions.
-
-Here's the prompt:
+            name: "Think tags example",
+            response: `<think>This user wants a creative writing prompt. I should focus on something engaging.</think>
 
 Write a short story about a robot discovering emotions for the first time.`
         },
         {
-            name: "Code block pattern",
-            response: `I will now generate the prompt you requested.
-
-\`\`\`prompt
+            name: "Multiple tag types example",
+            response: `<context>User is asking for a programming challenge</context>
 Create a function that calculates the factorial of a number recursively.
-\`\`\`
-
-This prompt will help you practice recursive functions.`
+<explanation>This is a good recursive problem that tests understanding of base cases.</explanation>`
         },
         {
-            name: "Trailing explanation pattern",
-            response: `Design a database schema for a social media application.
+            name: "Code block example",
+            response: `Here's a programming prompt:
 
-This prompt is designed to test your database design skills.`
+\`\`\`prompt
+Implement a binary search tree in Python and explain its time complexity.
+\`\`\`
+
+This will help practice data structures.`
         }
     ];
 
     // Test results for different configurations
     const results = [];
 
-    // Test with standard sanitization
-    console.log('\n=== Testing with Standard Sanitization ===\n');
+    // Test with standard configuration
+    console.log('\n=== Testing with Standard Configuration ===\n');
     chainManager.clearDecorators();
-    chainManager.addDecorator(standardSanitizer);
+    chainManager.addDecorator(standardDecorator);
 
     for (const example of examples) {
         const processed = chainManager.processResponse(example.response);
@@ -76,10 +70,10 @@ This prompt is designed to test your database design skills.`
         });
     }
 
-    // Test with aggressive sanitization
-    console.log('\n=== Testing with Aggressive Sanitization ===\n');
+    // Test with custom configuration
+    console.log('\n=== Testing with Custom Configuration ===\n');
     chainManager.clearDecorators();
-    chainManager.addDecorator(aggressiveSanitizer);
+    chainManager.addDecorator(customDecorator);
 
     for (const example of examples) {
         const processed = chainManager.processResponse(example.response);
@@ -91,38 +85,28 @@ This prompt is designed to test your database design skills.`
 
         results.push({
             name: example.name,
-            configuration: 'aggressive',
+            configuration: 'custom',
             original: example.response,
             processed: processed
         });
     }
 
-    // Test with custom configuration
-    console.log('\n=== Testing with Custom Configuration ===\n');
-    const customSanitizer = new ResponseSanitizationDecorator({
-        sanitizationLevel: 'standard',
-        customPatterns: ['Design a database schema'],
-        removeTrailingExplanations: false
-    });
+    // Test with a custom tag example
+    console.log('\n=== Testing with Custom Tag ===\n');
 
-    chainManager.clearDecorators();
-    chainManager.addDecorator(customSanitizer);
+    const customTagExample = `<custom>This is a custom tag that should be removed with the custom configuration</custom>
+But this content should remain.`;
 
-    const customExample = examples[2]; // Using the trailing explanation example
-    const customProcessed = chainManager.processResponse(customExample.response);
-
-    console.log(`\n--- Custom Configuration Test ---`);
     console.log('Original:');
-    console.log(customExample.response);
-    console.log('\nProcessed with custom patterns:');
-    console.log(customProcessed);
-
-    results.push({
-        name: 'Custom Configuration Test',
-        configuration: 'custom',
-        original: customExample.response,
-        processed: customProcessed
-    });
+    console.log(customTagExample);
+    console.log('\nProcessed with standard configuration:');
+    chainManager.clearDecorators();
+    chainManager.addDecorator(standardDecorator);
+    console.log(chainManager.processResponse(customTagExample));
+    console.log('\nProcessed with custom configuration:');
+    chainManager.clearDecorators();
+    chainManager.addDecorator(customDecorator);
+    console.log(chainManager.processResponse(customTagExample));
 
     return results;
 }

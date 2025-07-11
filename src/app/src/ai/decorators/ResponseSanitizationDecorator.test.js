@@ -11,43 +11,56 @@ describe('ResponseSanitizationDecorator', () => {
     decorator = new ResponseSanitizationDecorator();
   });
 
-  test('should remove leading explanatory text with standard markers', () => {
-    const input = "Here's a thinking process that could lead to the prompt:\n\n" +
-      "First, I need to consider what makes a good prompt for creative writing.\n" +
-      "Then, I should structure it with clear instructions.\n\n" +
-      "Here's the prompt:\n\n" +
+  test('should remove <think> tags and their content', () => {
+    const input = "Here's a prompt for you:\n\n" +
+      "<think>This user wants a creative writing prompt. I should focus on something engaging.</think>\n\n" +
       "Write a short story about a robot discovering emotions for the first time.";
 
-    const expected = 'Write a short story about a robot discovering emotions for the first time.';
+    const expected = "Here's a prompt for you:\n\n" +
+      "Write a short story about a robot discovering emotions for the first time.";
 
     expect(decorator.process(input)).toBe(expected);
   });
 
-  test('should handle text with code block markers', () => {
-    const input = "I will now generate the prompt you requested.\n\n" +
-      "```prompt\n" +
+  test('should remove multiple XML tags of different types', () => {
+    const input = "<context>User is asking for a programming challenge</context>\n" +
       "Create a function that calculates the factorial of a number recursively.\n" +
-      "```\n\n" +
-      "This prompt will help you practice recursive functions.";
+      "<explanation>This is a good recursive problem that tests understanding of base cases.</explanation>";
 
-    const expected = 'Create a function that calculates the factorial of a number recursively.';
-
-    expect(decorator.process(input)).toBe(expected);
-  });
-
-  test('should handle text with trailing explanations', () => {
-    const input = "Design a database schema for a social media application.\n\n" +
-      "This prompt is designed to test your database design skills.";
-
-    const expected = 'Design a database schema for a social media application.';
+    const expected = "Create a function that calculates the factorial of a number recursively.";
 
     expect(decorator.process(input)).toBe(expected);
   });
 
-  test('should not modify text without explanatory markers', () => {
-    const input = 'Write a function to reverse a string in JavaScript.';
+  test('should handle nested XML tags', () => {
+    const input = "<think>I should create a database design prompt <think>focusing on normalization</think></think>\n" +
+      "Design a database schema for a social media application.";
 
-    expect(decorator.process(input)).toBe(input);
+    const expected = "Design a database schema for a social media application.";
+
+    expect(decorator.process(input)).toBe(expected);
+  });
+
+  test('should remove markdown code block markers when configured', () => {
+    const input = "```prompt\n" +
+      "Write a function to reverse a string in JavaScript.\n" +
+      "```";
+
+    const expected = "Write a function to reverse a string in JavaScript.";
+
+    expect(decorator.process(input)).toBe(expected);
+  });
+
+  test('should not remove code block markers when configured not to', () => {
+    const noCodeBlockRemoval = new ResponseSanitizationDecorator({
+      removeCodeBlocks: false
+    });
+
+    const input = "```prompt\n" +
+      "Write a function to reverse a string in JavaScript.\n" +
+      "```";
+
+    expect(noCodeBlockRemoval.process(input)).toBe(input);
   });
 
   test('should handle empty or null input', () => {
@@ -55,45 +68,30 @@ describe('ResponseSanitizationDecorator', () => {
     expect(decorator.process(null)).toBe(null);
   });
 
-  test('should use aggressive sanitization when configured', () => {
-    const aggressiveDecorator = new ResponseSanitizationDecorator({
-      sanitizationLevel: 'aggressive'
-    });
-
-    const input = "First, I'll create a prompt about data structures.\n\n" +
-      "Prompt: Implement a binary search tree in Python and explain its time complexity.\n\n" +
-      "This will help you understand tree data structures better.";
-
-    const expected = 'Implement a binary search tree in Python and explain its time complexity.';
-
-    expect(aggressiveDecorator.process(input)).toBe(expected);
-  });
-
-  test('should respect custom patterns', () => {
+  test('should respect custom XML tag list', () => {
     const customDecorator = new ResponseSanitizationDecorator({
-      customPatterns: ['Starting with a prompt about']
+      xmlTagsToRemove: ['custom', 'tags']
     });
 
-    const input = "Starting with a prompt about algorithms:\n\n" +
-      "Implement quicksort and explain why it's typically faster than merge sort.";
+    const input = "<custom>This should be removed</custom>\n" +
+      "<tags>This should also be removed</tags>\n" +
+      "<think>But this should remain</think>\n" +
+      "Keep this content.";
 
-    const expected = "Implement quicksort and explain why it's typically faster than merge sort.";
+    const expected = "<think>But this should remain</think>\n" +
+      "Keep this content.";
 
     expect(customDecorator.process(input)).toBe(expected);
   });
 
-  test('should keep explanations when configured not to remove them', () => {
-    const preservingDecorator = new ResponseSanitizationDecorator({
-      removeLeadingExplanations: false,
-      removeTrailingExplanations: false
+  test('should not remove XML tags when configured not to', () => {
+    const noXmlRemoval = new ResponseSanitizationDecorator({
+      removeXmlTags: false
     });
 
-    const input = "Here's a thinking process:\n\n" +
-      "A good prompt should be clear and specific.\n\n" +
-      "Prompt: Write a function that validates email addresses using regex.\n\n" +
-      "This prompt will test your regex knowledge.";
+    const input = "<think>This should remain</think>\n" +
+      "Keep this content.";
 
-    // Should preserve the explanatory text
-    expect(preservingDecorator.process(input)).toBe(input);
+    expect(noXmlRemoval.process(input)).toBe(input);
   });
 });
