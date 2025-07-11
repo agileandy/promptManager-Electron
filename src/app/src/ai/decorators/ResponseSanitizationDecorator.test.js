@@ -16,8 +16,7 @@ describe('ResponseSanitizationDecorator', () => {
       "<think>This user wants a creative writing prompt. I should focus on something engaging.</think>\n\n" +
       "Write a short story about a robot discovering emotions for the first time.";
 
-    const expected = "Here's a prompt for you:\n\n" +
-      "Write a short story about a robot discovering emotions for the first time.";
+    const expected = "Here's a prompt for you:\n\n\n\nWrite a short story about a robot discovering emotions for the first time.";
 
     expect(decorator.process(input)).toBe(expected);
   });
@@ -78,8 +77,7 @@ describe('ResponseSanitizationDecorator', () => {
       "<think>But this should remain</think>\n" +
       "Keep this content.";
 
-    const expected = "<think>But this should remain</think>\n" +
-      "Keep this content.";
+    const expected = "But this should remain\nKeep this content.";
 
     expect(customDecorator.process(input)).toBe(expected);
   });

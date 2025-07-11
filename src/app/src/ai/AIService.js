@@ -1,6 +1,7 @@
 /**
  * AI Service Manager - Main interface for AI operations
  * Handles provider selection, configuration, and request routing
+ * Integrates with DecoratorChainManager for response processing
  */
 class AIService {
     constructor() {
@@ -20,6 +21,10 @@ class AIService {
         // Initialize providers based on configuration
         const { OpenRouterProvider } = require('./providers/OpenRouterProvider.js');
         const { OllamaProvider } = require('./providers/OllamaProvider.js');
+
+        // Initialize decorator chain manager
+        const { decoratorChainManager } = require('./decorators');
+        console.log('Decorator Chain Manager initialized');
 
         // Register available providers
         if (config.providers.openrouter?.enabled) {

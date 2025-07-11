@@ -3,6 +3,7 @@
  * Implements the BaseProvider interface for OpenRouter API
  */
 const { BaseProvider } = require('./BaseProvider.js');
+const { decoratorChainManager } = require('../decorators');
 
 class OpenRouterProvider extends BaseProvider {
     constructor(config) {
@@ -99,7 +100,9 @@ class OpenRouterProvider extends BaseProvider {
                 throw new Error('Empty content returned from OpenRouter');
             }
 
-            return content.trim();
+            // Process the response through the decorator chain
+            const processedContent = decoratorChainManager.processResponse(content.trim());
+            return processedContent;
         } catch (error) {
             console.error('OpenRouter completion failed:', error);
             throw error;
