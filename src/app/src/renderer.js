@@ -1019,11 +1019,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         const buildTree = async (tags, parentId = null) => {
-            const filteredTags = tags.filter(tag => tag.parentId === parentId);
+            // Get tags for this level and sort them alphabetically by name
+            const filteredTags = tags.filter(tag => tag.parentId === parentId)
+                .sort((a, b) => a.name.localeCompare(b.name));
+
             if (filteredTags.length === 0) return null;
 
             const ul = document.createElement('ul');
-            ul.classList.add('ml-2', 'pl-3', 'border-l', 'border-gray-300', 'dark:border-gray-600');
+            ul.classList.add('ml-2', 'pl-2', 'border-l', 'border-gray-300', 'dark:border-gray-600');
+
+            // Add a class to identify this as a child list for collapsing
+            if (parentId !== null) {
+                ul.classList.add('tag-children');
+            }
 
             for (const tag of filteredTags) {
                 // Get rollup count of unique prompts in this tag's entire subtree
@@ -1036,11 +1044,48 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const showDelete = !hasChildren && promptCount === 0;
 
                 const li = document.createElement('li');
-                li.classList.add('mb-2', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1', 'group');
+                li.classList.add('mb-1', 'cursor-pointer', 'hover:bg-gray-200', 'dark:hover:bg-gray-700', 'p-1', 'group');
 
-                // Create a wrapper div for the tag content and delete button
+                // Create a wrapper div for the tag content and buttons
                 const tagWrapper = document.createElement('div');
                 tagWrapper.classList.add('flex', 'items-center', 'justify-between');
+
+                // Create a container for the toggle and tag name to keep them together
+                const tagNameContainer = document.createElement('div');
+                tagNameContainer.classList.add('flex', 'items-center');
+
+                // Add toggle button for parent tags
+                if (hasChildren) {
+                    const toggleBtn = document.createElement('button');
+                    toggleBtn.innerHTML = '▼'; // Down arrow for expanded
+                    toggleBtn.className = 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 mr-1 text-xs';
+                    toggleBtn.title = 'Collapse/Expand';
+                    toggleBtn.setAttribute('data-expanded', 'true');
+                    toggleBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        const isExpanded = toggleBtn.getAttribute('data-expanded') === 'true';
+                        const childList = li.querySelector('.tag-children');
+
+                        if (childList) {
+                            if (isExpanded) {
+                                childList.style.display = 'none';
+                                toggleBtn.innerHTML = '►'; // Right arrow for collapsed
+                                toggleBtn.setAttribute('data-expanded', 'false');
+                            } else {
+                                childList.style.display = '';
+                                toggleBtn.innerHTML = '▼'; // Down arrow for expanded
+                                toggleBtn.setAttribute('data-expanded', 'true');
+                            }
+                        }
+                    };
+                    tagNameContainer.appendChild(toggleBtn);
+                } else {
+                    // Add a small spacer for leaf nodes to maintain alignment
+                    const spacer = document.createElement('span');
+                    spacer.className = 'mr-3 text-xs';
+                    spacer.innerHTML = '&nbsp;';
+                    tagNameContainer.appendChild(spacer);
+                }
 
                 const tagContent = document.createElement('span');
                 tagContent.innerHTML = `${tag.name} <span class="text-xs text-gray-500 dark:text-gray-400">(${promptCount})</span>`;
@@ -1054,7 +1099,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     tagContent.style.cursor = 'grab';
                 }
 
-                tagWrapper.appendChild(tagContent);
+                tagNameContainer.appendChild(tagContent);
+                tagWrapper.appendChild(tagNameContainer);
+
+                // Container for action buttons
+                const actionBtns = document.createElement('div');
+                actionBtns.classList.add('flex', 'items-center');
 
                 // Add edit button (hidden by default, shown on hover)
                 const editBtn = document.createElement('button');
@@ -1065,7 +1115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     e.stopPropagation();
                     await editTagName(tag.id, tag.name, tag.fullPath);
                 };
-                tagWrapper.appendChild(editBtn);
+                actionBtns.appendChild(editBtn);
 
                 if (showDelete) {
                     const deleteBtn = document.createElement('button');
@@ -1076,13 +1126,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                         e.stopPropagation();
                         await deleteTag(tag.id, tag.fullPath);
                     };
-                    tagWrapper.appendChild(deleteBtn);
+                    actionBtns.appendChild(deleteBtn);
                 }
 
+                tagWrapper.appendChild(actionBtns);
                 li.appendChild(tagWrapper);
 
                 li.addEventListener('click', async (e) => {
-                    // Only handle click if it's not on the delete button
+                    // Only handle click if it's not on a button
                     if (e.target.tagName === 'BUTTON') return;
                     e.stopPropagation();
                     await renderPromptsByTag(tag.fullPath);
