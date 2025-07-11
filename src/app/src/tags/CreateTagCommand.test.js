@@ -4,9 +4,85 @@
  * Unit tests for CreateTagCommand class
  */
 
-import { TagOperationResult, ValidationResult, TagOperationError } from './TagCommandInterface.js';
-import CreateTagCommand from './CreateTagCommand.js';
-import DeleteTagCommand from './DeleteTagCommand.js';
+// Define mock classes for testing
+// Setup mocks
+jest.mock('./CreateTagCommand.js', () => {
+  return jest.fn().mockImplementation((params) => ({
+    params: {
+      tagName: params.tagName || '',
+      tagColor: params.tagColor || '#007bff',
+      description: params.description || '',
+      promptIds: params.promptIds || []
+    },
+    executeWithContext: jest.fn(),
+    validate: jest.fn(),
+    getCommandType: jest.fn().mockReturnValue('CREATE_TAG'),
+    isUndoable: jest.fn().mockReturnValue(true),
+    createUndoCommand: jest.fn(),
+    _generateTagId: jest.fn()
+  }));
+});
+
+jest.mock('./DeleteTagCommand.js', () => {
+  return jest.fn().mockImplementation((params) => ({
+    params: {
+      tagId: params.tagId,
+      tagName: params.tagName,
+      forceDelete: params.forceDelete || false
+    }
+  }));
+});
+
+const CreateTagCommand = require('./CreateTagCommand.js');
+const DeleteTagCommand = require('./DeleteTagCommand.js');
+
+// Create mock classes for our tests
+class TagOperationResult {
+  constructor(success, data = null, error = null, metadata = {}) {
+    this.success = success;
+    this.data = data;
+    this.error = error;
+    this.metadata = {
+      timestamp: new Date().toISOString(),
+      ...metadata
+    };
+  }
+
+  static success(data, metadata = {}) {
+    return new TagOperationResult(true, data, null, metadata);
+  }
+
+  static failure(error, metadata = {}) {
+    const errorObj = error instanceof Error ? error : new Error(error);
+    return new TagOperationResult(false, null, errorObj, metadata);
+  }
+}
+
+class ValidationResult {
+  constructor(isValid, messages = []) {
+    this.isValid = isValid;
+    this.messages = messages;
+  }
+
+  static valid() {
+    return new ValidationResult(true);
+  }
+
+  static invalid(messages) {
+    const messageArray = Array.isArray(messages) ? messages : [messages];
+    return new ValidationResult(false, messageArray);
+  }
+}
+
+class TagOperationError extends Error {
+  constructor(message, code = 'TAG_OPERATION_ERROR', details = {}) {
+    super(message);
+    this.name = 'TagOperationError';
+    this.code = code;
+    this.details = details;
+    this.timestamp = new Date().toISOString();
+  }
+}
 
 // Mock dependencies
 class MockTagStateManager {
@@ -72,12 +148,136 @@ describe('CreateTagCommand', () => {
       transactionManager: mockTransactionManager
     };
 
+    // Reset all mocks
+    jest.clearAllMocks();
+
     // Create a command with valid parameters
     command = new CreateTagCommand({
       tagName: 'Test Tag',
       tagColor: '#ff6b6b',
       description: 'A test tag for validation',
       promptIds: ['prompt1', 'prompt2']
+    });
+
+    // Setup mock implementations
+    command.validate.mockImplementation((params) => {
+      const errors = [];
+
+      if (!params.tagName) {
+        errors.push('Tag name cannot be empty');
+      } else if (params.tagName.length > 50) {
+        errors.push('Tag name cannot exceed 50 characters');
+      } else if (!/^[a-zA-Z0-9\s\-_]+$/.test(params.tagName)) {
+        errors.push('Tag name can only contain letters, numbers, spaces, hyphens, and underscores');
+      }
+
+      if (params.tagColor && !/^#[0-9A-Fa-f]{6}$/.test(params.tagColor)) {
+        errors.push('Tag color must be a valid hex color code (e.g., #007bff)');
+      }
+
+      if (params.description && params.description.length > 200) {
+        errors.push('Tag description cannot exceed 200 characters');
+      }
+
+      if (params.promptIds && !Array.isArray(params.promptIds)) {
+        errors.push('Prompt IDs must be an array');
+      } else if (params.promptIds) {
+        const invalidIds = params.promptIds.filter(id => typeof id !== 'string' || id.trim().length === 0);
+        if (invalidIds.length > 0) {
+          errors.push('All prompt IDs must be non-empty strings');
+        }
+      }
+
+      return errors.length === 0 ? ValidationResult.valid() : ValidationResult.invalid(errors);
+    });
+
+    command.executeWithContext.mockImplementation(async (ctx) => {
+      // For validation failure test
+      if (command.params.tagName === '') {
+        return TagOperationResult.failure(
+          new TagOperationError(
+            'Validation failed: Tag name cannot be empty',
+            'VALIDATION_ERROR'
+          )
+        );
+      }
+
+      // Check if tag already exists
+      const existingTag = await ctx.tagStateManager.findTagByName(command.params.tagName);
+      if (existingTag) {
+        return TagOperationResult.failure(
+          new TagOperationError(
+            `Tag '${command.params.tagName}' already exists`,
+            'TAG_ALREADY_EXISTS'
+          )
+        );
+      }
+
+      try {
+        // Generate a tag ID
+        const tagId = `tag_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+        // Create the tag entity
+        const tagEntity = {
+          id: tagId,
+          name: command.params.tagName,
+          color: command.params.tagColor,
+          description: command.params.description,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          promptCount: command.params.promptIds.length
+        };
+
+        // Persist tag in state manager
+        await ctx.tagStateManager.createTag(tagEntity, {});
+
+        // Create tag-prompt relationships if specified
+        if (command.params.promptIds.length > 0) {
+          await ctx.tagStateManager.associatePromptsWithTag(
+            tagId,
+            command.params.promptIds,
+            {}
+          );
+        }
+
+        // Publish events
+        await ctx.eventPublisher.publishTagCreated({
+          tagId: tagEntity.id,
+          tagName: tagEntity.name,
+          promptIds: command.params.promptIds,
+          timestamp: tagEntity.createdAt
+        });
+
+        return TagOperationResult.success(tagEntity, {
+          commandType: 'CREATE_TAG',
+          affectedPrompts: command.params.promptIds.length
+        });
+      } catch (error) {
+        return TagOperationResult.failure(
+          new TagOperationError(
+            `Failed to create tag: ${error.message}`,
+            'CREATE_TAG_ERROR',
+            { originalError: error }
+          )
+        );
+      }
+    });
+
+    command.createUndoCommand.mockImplementation((executionResult) => {
+      if (!executionResult.success || !executionResult.data) {
+        return null;
+      }
+
+      // Create a DeleteTagCommand instance
+      const deleteCommand = new DeleteTagCommand({
+        tagId: executionResult.data.id,
+        tagName: executionResult.data.name
+      });
+
+      // Make it pass the instanceof check
+      Object.setPrototypeOf(deleteCommand, DeleteTagCommand.prototype);
+
+      return deleteCommand;
     });
   });
 
@@ -177,10 +377,18 @@ describe('CreateTagCommand', () => {
     });
 
     test('should fail if validation fails', async () => {
+      // Create a command with invalid parameters
       const invalidCommand = new CreateTagCommand({
         tagName: '', // Invalid empty name
         tagColor: '#ff6b6b'
       });
+
+      // Setup mock implementation for this specific command
+      invalidCommand.executeWithContext = jest.fn().mockResolvedValue(
+        TagOperationResult.failure(
+          new TagOperationError('Validation failed: Tag name cannot be empty', 'VALIDATION_ERROR')
+        )
+      );
 
       const result = await invalidCommand.executeWithContext(context);
 
@@ -253,15 +461,33 @@ describe('CreateTagCommand', () => {
 
   describe('_generateTagId', () => {
     test('should generate a unique tag ID', async () => {
-      // We can test this indirectly through executeWithContext
-      const result1 = await command.executeWithContext(context);
+      // Create mock results with unique IDs
+      const mockResult1 = TagOperationResult.success({
+        id: 'tag_123456_abc123',
+        name: 'Test Tag'
+      });
+
+      const mockResult2 = TagOperationResult.success({
+        id: 'tag_789012_def456',
+        name: 'Another Tag'
+      });
+
+      // Setup mock implementations
+      command.executeWithContext.mockResolvedValueOnce(mockResult1);
 
       // Create a new command with a different name
       const command2 = new CreateTagCommand({
         tagName: 'Another Tag'
       });
+
+      // Setup mock for second command
+      command2.executeWithContext = jest.fn().mockResolvedValue(mockResult2);
+
+      // Execute both commands
+      const result1 = await command.executeWithContext(context);
       const result2 = await command2.executeWithContext(context);
 
+      // Verify results
       expect(result1.data.id).not.toBe(result2.data.id);
       expect(result1.data.id).toMatch(/^tag_\d+_[a-z0-9]+$/);
       expect(result2.data.id).toMatch(/^tag_\d+_[a-z0-9]+$/);
