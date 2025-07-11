@@ -34,12 +34,12 @@ class ConfigManager {
                     }
                 },
                 generation: {
-                    systemPrompt: "Your role is to create AI generated user prompts based on the description provided to you",
+                    systemPrompt: "Your role is to create AI generated user prompts based on the description provided to you. When providing instructions or steps, always format them as numbered lists with clear, actionable items. Each step should be outcome-focused and measurable. Break complex tasks into distinct steps and use consistent formatting.",
                     maxTokens: 2000,
                     temperature: 0.7
                 },
                 optimization: {
-                    systemPrompt: "Optimize this prompt for use in AI systems to improve clarity, specificity, and effectiveness",
+                    systemPrompt: "Optimize this prompt for use in AI systems to improve clarity, specificity, and effectiveness. Present any instructions as clear, numbered steps with measurable outcomes. Format any instructions as explicit, numbered steps with clear actions and outcomes.",
                     maxTokens: 2000,
                     temperature: 0.3
                 }
