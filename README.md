@@ -2,6 +2,9 @@
 
 A desktop application built with Electron for managing and organizing AI prompts with advanced tagging, version control, and AI-powered prompt generation.
 
+<img width="1844" height="1067" alt="image" src="https://github.com/user-attachments/assets/c3888cfe-2031-41e0-95c0-edc0a1949636" />
+
+
 ## Features
 
 ### Core Functionality
