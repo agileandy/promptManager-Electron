@@ -47,6 +47,12 @@ A desktop application built with Electron for managing and organizing AI prompts
 2. Install dependencies: `npm install`
 3. Run the application: `npm start`
 
+**📚 New to the project?** Check out our comprehensive documentation:
+- **[Quick Start Guide](QUICK_START.md)** - Get up and running in minutes
+- **[Code Explanation](CODE_EXPLANATION.md)** - Detailed technical overview
+- **[Architecture Guide](ARCHITECTURE.md)** - System design and patterns
+- **[API Reference](API_REFERENCE.md)** - Complete API documentation
+
 ## Data Storage
 
 The application stores all data in a common location for consistency across development and distribution versions:
@@ -129,6 +135,17 @@ This project follows trunk-based development:
 2. Implement your changes with tests
 3. Ensure all features work in both development and built versions
 4. Submit a pull request with clear description
+
+### Documentation
+
+This project includes comprehensive documentation to help developers understand and contribute:
+
+- **[QUICK_START.md](QUICK_START.md)** - Installation, setup, and basic usage
+- **[CODE_EXPLANATION.md](CODE_EXPLANATION.md)** - Complete codebase explanation with examples
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture, design patterns, and data flow
+- **[API_REFERENCE.md](API_REFERENCE.md)** - Detailed API documentation for all modules
+
+These documents explain the entire codebase, from high-level architecture to specific implementation details, making it easy for new contributors to understand and extend the application.
 
 ## License
 
