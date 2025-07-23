@@ -1773,7 +1773,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Set initial width from localStorage if available
         const savedWidth = localStorage.getItem('sidebarWidth');
         if (savedWidth) {
-            sidebar.style.width = savedWidth;
+            document.body.style.setProperty('--sidebar-width', savedWidth);
         }
 
         resizeHandle.addEventListener('mousedown', (e) => {
@@ -1790,7 +1790,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const newWidth = e.clientX;
 
             if (newWidth >= minWidth && newWidth <= maxWidth) {
-                sidebar.style.width = newWidth + 'px';
                 document.body.style.setProperty('--sidebar-width', newWidth + 'px');
             }
         });
@@ -1800,7 +1799,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isResizing = false;
                 document.body.style.cursor = 'default';
                 // Save the width to localStorage
-                localStorage.setItem('sidebarWidth', sidebar.style.width);
+                localStorage.setItem('sidebarWidth', getComputedStyle(document.body).getPropertyValue('--sidebar-width'));
             }
         });
     }
