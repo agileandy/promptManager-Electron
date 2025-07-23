@@ -324,7 +324,37 @@ describe('CreateTagCommand', () => {
     test('should reject tag name with invalid characters', () => {
       const result = command.validate({ ...command.params, tagName: 'Invalid@Tag#Name' });
       expect(result.isValid).toBe(false);
-      expect(result.messages).toContain('Tag name can only contain letters, numbers, spaces, hyphens, and underscores');
+      expect(result.messages).toContain('Tag name can only contain letters, numbers, spaces, hyphens, underscores, and forward slashes');
+    });
+
+    test('should accept hierarchical tag names with forward slashes', () => {
+      const result = command.validate({ ...command.params, tagName: 'roles/ux' });
+      expect(result.isValid).toBe(true);
+      expect(result.messages).toEqual([]);
+    });
+
+    test('should accept deeply nested hierarchical tag names', () => {
+      const result = command.validate({ ...command.params, tagName: 'projects/client-a/design/ux/research' });
+      expect(result.isValid).toBe(true);
+      expect(result.messages).toEqual([]);
+    });
+
+    test('should reject tag names with consecutive forward slashes', () => {
+      const result = command.validate({ ...command.params, tagName: 'roles//ux' });
+      expect(result.isValid).toBe(false);
+      expect(result.messages).toContain('Tag name cannot contain consecutive forward slashes');
+    });
+
+    test('should reject tag names starting with forward slash', () => {
+      const result = command.validate({ ...command.params, tagName: '/roles/ux' });
+      expect(result.isValid).toBe(false);
+      expect(result.messages).toContain('Tag name cannot start or end with forward slash');
+    });
+
+    test('should reject tag names ending with forward slash', () => {
+      const result = command.validate({ ...command.params, tagName: 'roles/ux/' });
+      expect(result.isValid).toBe(false);
+      expect(result.messages).toContain('Tag name cannot start or end with forward slash');
     });
 
     test('should reject invalid color format', () => {

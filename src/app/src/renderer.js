@@ -334,34 +334,57 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Tag Creation and Hierarchy Management ---
     async function createOrGetTag(tagPath) {
+        console.log(`Creating/getting tag: "${tagPath}"`);
+
         // Check if tag already exists
         const existingTag = await db.tags.where('fullPath').equals(tagPath).first();
-        if (existingTag) return existingTag;
+        if (existingTag) {
+            console.log(`Found existing tag: "${tagPath}" (ID: ${existingTag.id})`);
+            return existingTag;
+        }
 
         // Parse hierarchical path
         const parts = tagPath.split('/');
-        let currentPath = '';
         let parentId = null;
+        let lastCreatedId = null;
 
+        // Create or find each level of the hierarchy
         for (let i = 0; i < parts.length; i++) {
             const part = parts[i].trim();
-            currentPath += (i > 0 ? '/' : '') + part;
+            if (!part) continue; // Skip empty parts
 
+            // Build the full path up to this level - FIX: Use slice approach
+            const currentPath = parts.slice(0, i + 1).join('/');
+
+            console.log(`Processing level ${i}: "${part}" -> fullPath: "${currentPath}", parentId: ${parentId}`);
+
+            // Check if this level already exists
             const existingPart = await db.tags.where('fullPath').equals(currentPath).first();
             if (existingPart) {
+                console.log(`Found existing part: "${currentPath}" (ID: ${existingPart.id})`);
                 parentId = existingPart.id;
+                lastCreatedId = existingPart.id;
             } else {
-                const newTag = await db.tags.add({
+                // Create new tag with correct parent relationship
+                const newTag = {
                     name: part,
                     fullPath: currentPath,
-                    parentId: parentId,
+                    parentId: parentId, // null for root tags, correct parentId for children
                     level: i
-                });
-                parentId = newTag;
+                };
+
+                console.log(`Creating new tag:`, newTag);
+                const newTagId = await db.tags.add(newTag);
+                console.log(`Created tag "${currentPath}" with ID: ${newTagId}`);
+
+                parentId = newTagId; // This becomes the parent for the next level
+                lastCreatedId = newTagId;
             }
         }
 
-        return await db.tags.get(parentId);
+        const finalTag = await db.tags.get(lastCreatedId);
+        console.log(`Final tag result:`, finalTag);
+        return finalTag;
     }
 
     // --- Tag-Only Manager for State Isolation ---
@@ -1741,6 +1764,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     const helpTabBtns = document.querySelectorAll('.help-tab-btn');
     const helpTabContents = document.querySelectorAll('.help-tab-content');
 
+    // --- Sidebar Resize Functionality ---
+    const sidebar = document.getElementById('sidebar');
+    const resizeHandle = document.getElementById('resize-handle');
+    let isResizing = false;
+
+    if (sidebar && resizeHandle) {
+        // Set initial width from localStorage if available
+        const savedWidth = localStorage.getItem('sidebarWidth');
+        if (savedWidth) {
+            sidebar.style.width = savedWidth;
+        }
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const minWidth = 200;
+            const maxWidth = 500;
+            const newWidth = e.clientX;
+
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                sidebar.style.width = newWidth + 'px';
+                document.body.style.setProperty('--sidebar-width', newWidth + 'px');
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = 'default';
+                // Save the width to localStorage
+                localStorage.setItem('sidebarWidth', sidebar.style.width);
+            }
+        });
+    }
+
     // Function to switch help tabs
     function switchHelpTab(targetTab) {
         // Remove active class from all tab buttons
@@ -2336,20 +2400,20 @@ function initializeTagModal() {
     createTagForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const tagName = document.getElementById('new-tag-name').value.trim();
-        const description = document.getElementById('new-tag-description').value.trim();
 
         if (!tagName) return;
 
         try {
-            const result = await tagOnlyManager.createTag(tagName, description);
+            // Use the tag manager's hierarchy logic for consistency
+            const tag = await tagOnlyManager._findOrCreateTag(tagName);
 
-            if (result.success) {
-                console.log('Tag created successfully:', result.tag);
+            if (tag) {
+                console.log('Tag created successfully:', tag);
                 createTagForm.reset();
                 await loadTagsList();
                 await renderTagTree(); // Refresh the sidebar tag tree
             } else {
-                alert('Failed to create tag: ' + result.error);
+                alert('Failed to create tag');
             }
         } catch (error) {
             console.error('Error creating tag:', error);
@@ -2437,14 +2501,6 @@ function initializeTagModal() {
             // Set usage count
             const usageCount = tagElement.querySelector('.tag-usage-count');
             usageCount.textContent = tag.usageCount || 0;
-
-            // Set description
-            const tagDescription = tagElement.querySelector('.tag-description');
-            if (tag.description) {
-                tagDescription.textContent = tag.description;
-            } else {
-                tagDescription.style.display = 'none';
-            }
 
             // Add event listeners for rename and delete buttons
             const renameBtn = tagElement.querySelector('.rename-tag-btn');

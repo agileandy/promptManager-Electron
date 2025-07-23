@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tag Hierarchy Diagnostic Utility</title>
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section {
+            background: #000;
+            border: 1px solid #333;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .section h2 {
+            color: #ffff00;
+            margin-top: 0;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+        .tag-item {
+            background: #222;
+            margin: 5px 0;
+            padding: 10px;
+            border-left: 3px solid #666;
+            font-family: monospace;
+        }
+        .tag-item.parent {
+            border-left-color: #00ff00;
+        }
+        .tag-item.child {
+            border-left-color: #ffff00;
+            margin-left: 20px;
+        }
+        .tag-item.orphan {
+            border-left-color: #ff0000;
+        }
+        .hex-display {
+            color: #ff9900;
+            font-size: 0.8em;
+        }
+        .error {
+            color: #ff0000;
+            background: #330000;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .success {
+            color: #00ff00;
+            background: #003300;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        button {
+            background: #333;
+            color: #00ff00;
+            border: 1px solid #666;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 5px;
+            border-radius: 3px;
+        }
+        button:hover {
+            background: #555;
+        }
+        .tree-visual {
+            background: #111;
+            padding: 15px;
+            border: 1px solid #333;
+            font-family: monospace;
+            white-space: pre;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .test-pass {
+            background: #003300;
+            color: #00ff00;
+        }
+        .test-fail {
+            background: #330000;
+            color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Tag Hierarchy Diagnostic Utility</h1>
+
+        <div class="section">
+            <h2>Database Connection</h2>
+            <button onclick="initDatabase()">Connect to Database</button>
+            <div id="db-status"></div>
+        </div>
+
+        <div class="section">
+            <h2>Raw Tag Data Analysis</h2>
+            <button onclick="analyzeRawTags()">Analyze All Tags</button>
+            <div id="raw-tags-output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Hierarchy Relationship Analysis</h2>
+            <button onclick="analyzeHierarchy()">Analyze Tag Relationships</button>
+            <div id="hierarchy-output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Tag Tree Visualization</h2>
+            <button onclick="renderDiagnosticTree()">Render Tree</button>
+            <div id="tree-output" class="tree-visual"></div>
+        </div>
+
+        <div class="section">
+            <h2>Data Corruption Detection</h2>
+            <button onclick="detectCorruption()">Check for Corruption</button>
+            <div id="corruption-output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Full Tree Rendering Test</h2>
+            <button onclick="renderFullExistingTree()">Render All Existing Tags Tree</button>
+            <button onclick="testTagCreation()">Test Creating 'coding/init' Tag</button>
+            <div id="test-output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Prompt Analysis</h2>
+            <button onclick="analyzePrompts()">Analyze Existing Prompts</button>
+            <div id="prompts-output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Fix Specific Issues</h2>
+            <button onclick="fixCodingInitTag()">Fix "coding/init" Tag (ID: 31)</button>
+            <button onclick="removeTestTags()">Remove Test Tags (Keep Real Tags)</button>
+            <div id="specific-fix-output"></div>
+        </div>
+
+        <div class="section">
+            <h2>Fix & Verify</h2>
+            <button onclick="repairCorruptedHierarchy()">Repair Corrupted Hierarchy</button>
+            <button onclick="recreateTestTags()">⚠️ Create Test Data (Don't Use)</button>
+            <button onclick="cleanAndRecreate()">⚠️ Delete ALL Tags</button>
+            <div id="fix-output"></div>
+        </div>
+    </div>
+
+    <script>
+        let db;
+
+        // Utility functions
+        function toHex(str) {
+            return Array.from(str).map(c =>
+                c.charCodeAt(0).toString(16).padStart(2, '0')
+            ).join(' ');
+        }
+
+        function log(elementId, message, className = '') {
+            const element = document.getElementById(elementId);
+            const div = document.createElement('div');
+            div.innerHTML = message;
+            if (className) div.className = className;
+            element.appendChild(div);
+        }
+
+        function clear(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        // Database initialization
+        async function initDatabase() {
+            clear('db-status');
+            try {
+                db = new Dexie('AIPromptManagerDB');
+                db.version(4).stores({
+                    prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
+                    folders: '++id, name, parentId',
+                    tags: '++id, name, fullPath, parentId, level',
+                    promptTags: '++id, promptId, tagId'
+                });
+
+                await db.open();
+                log('db-status', '✅ Database connected successfully', 'success');
+
+                const tagCount = await db.tags.count();
+                log('db-status', `📊 Found ${tagCount} tags in database`);
+
+            } catch (error) {
+                log('db-status', `❌ Database connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Raw tag analysis
+        async function analyzeRawTags() {
+            clear('raw-tags-output');
+            if (!db) {
+                log('raw-tags-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                const allTags = await db.tags.orderBy('id').toArray();
+                log('raw-tags-output', `<h3>📋 Found ${allTags.length} tags:</h3>`);
+
+                allTags.forEach((tag, index) => {
+                    const hexName = toHex(tag.name || '');
+                    const hexFullPath = toHex(tag.fullPath || '');
+
+                    log('raw-tags-output', `
+                        <div class="tag-item">
+                            <strong>Tag ${index + 1} (ID: ${tag.id})</strong><br>
+                            Name: "${tag.name}" <span class="hex-display">[${hexName}]</span><br>
+                            FullPath: "${tag.fullPath}" <span class="hex-display">[${hexFullPath}]</span><br>
+                            ParentId: ${tag.parentId}<br>
+                            Level: ${tag.level}<br>
+                            Created: ${tag.createdAt || 'N/A'}
+                        </div>
+                    `);
+                });
+
+            } catch (error) {
+                log('raw-tags-output', `❌ Analysis failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Hierarchy analysis
+        async function analyzeHierarchy() {
+            clear('hierarchy-output');
+            if (!db) {
+                log('hierarchy-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                const allTags = await db.tags.orderBy('fullPath').toArray();
+
+                // Group by parent relationships
+                const rootTags = allTags.filter(t => t.parentId === null);
+                const childTags = allTags.filter(t => t.parentId !== null);
+                const orphanTags = [];
+
+                log('hierarchy-output', `<h3>🌳 Hierarchy Analysis:</h3>`);
+                log('hierarchy-output', `Root tags: ${rootTags.length}`);
+                log('hierarchy-output', `Child tags: ${childTags.length}`);
+
+                // Check for orphaned children
+                childTags.forEach(child => {
+                    const parentExists = allTags.find(t => t.id === child.parentId);
+                    if (!parentExists) {
+                        orphanTags.push(child);
+                    }
+                });
+
+                if (orphanTags.length > 0) {
+                    log('hierarchy-output', `⚠️ Orphaned tags: ${orphanTags.length}`, 'error');
+                    orphanTags.forEach(tag => {
+                        log('hierarchy-output', `  - "${tag.fullPath}" (parentId: ${tag.parentId} - MISSING!)`, 'error');
+                    });
+                }
+
+                // Look specifically for coding/init issue
+                const codingTags = allTags.filter(t =>
+                    t.fullPath.includes('coding') ||
+                    t.fullPath.includes('init')
+                );
+
+                if (codingTags.length > 0) {
+                    log('hierarchy-output', `<h4>🔍 Coding-related tags:</h4>`);
+                    codingTags.forEach(tag => {
+                        const parentTag = tag.parentId ? allTags.find(t => t.id === tag.parentId) : null;
+                        log('hierarchy-output', `
+                            <div class="tag-item ${tag.parentId ? 'child' : 'parent'}">
+                                "${tag.fullPath}" (ID: ${tag.id})<br>
+                                Parent: ${parentTag ? `"${parentTag.fullPath}" (ID: ${tag.parentId})` : 'ROOT'}<br>
+                                Level: ${tag.level}
+                            </div>
+                        `);
+                    });
+                }
+
+            } catch (error) {
+                log('hierarchy-output', `❌ Hierarchy analysis failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Tree visualization
+        async function renderDiagnosticTree() {
+            clear('tree-output');
+            if (!db) {
+                document.getElementById('tree-output').textContent = '❌ Connect to database first';
+                return;
+            }
+
+            try {
+                const allTags = await db.tags.orderBy('fullPath').toArray();
+
+                const buildTree = (parentId = null, depth = 0) => {
+                    const children = allTags.filter(t => t.parentId === parentId);
+                    let result = '';
+
+                    children.forEach(tag => {
+                        const indent = '  '.repeat(depth);
+                        const connector = depth > 0 ? '└─ ' : '';
+                        result += `${indent}${connector}"${tag.fullPath}" (ID:${tag.id}, Level:${tag.level})\n`;
+                        result += buildTree(tag.id, depth + 1);
+                    });
+
+                    return result;
+                };
+
+                const tree = buildTree();
+                document.getElementById('tree-output').textContent = tree || 'No tags found or all tags are orphaned';
+
+            } catch (error) {
+                document.getElementById('tree-output').textContent = `❌ Tree rendering failed: ${error.message}`;
+            }
+        }
+
+        // Corruption detection
+        async function detectCorruption() {
+            clear('corruption-output');
+            if (!db) {
+                log('corruption-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                const allTags = await db.tags.toArray();
+                const issues = [];
+
+                allTags.forEach(tag => {
+                    // Check for invisible characters
+                    const nameClean = tag.name?.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+                    const pathClean = tag.fullPath?.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+
+                    if (nameClean !== tag.name) {
+                        issues.push(`Tag "${tag.fullPath}" has non-printable characters in name`);
+                    }
+
+                    if (pathClean !== tag.fullPath) {
+                        issues.push(`Tag "${tag.fullPath}" has non-printable characters in fullPath`);
+                    }
+
+                    // Check for path/name mismatch
+                    if (tag.fullPath && tag.name) {
+                        const expectedName = tag.fullPath.split('/').pop();
+                        if (expectedName !== tag.name) {
+                            issues.push(`Tag "${tag.fullPath}" name mismatch: expected "${expectedName}", got "${tag.name}"`);
+                        }
+                    }
+
+                    // Check level consistency
+                    const expectedLevel = tag.fullPath ? tag.fullPath.split('/').length - 1 : 0;
+                    if (tag.level !== expectedLevel) {
+                        issues.push(`Tag "${tag.fullPath}" level mismatch: expected ${expectedLevel}, got ${tag.level}`);
+                    }
+                });
+
+                if (issues.length === 0) {
+                    log('corruption-output', '✅ No corruption detected', 'success');
+                } else {
+                    log('corruption-output', `⚠️ Found ${issues.length} issues:`, 'error');
+                    issues.forEach(issue => {
+                        log('corruption-output', `  - ${issue}`, 'error');
+                    });
+                }
+
+            } catch (error) {
+                log('corruption-output', `❌ Corruption check failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Render full existing tree (like main app)
+        async function renderFullExistingTree() {
+            clear('test-output');
+            if (!db) {
+                log('test-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                log('test-output', '<h3>🌳 Full Existing Tree Rendering (Main App Logic)</h3>');
+
+                const allTags = await db.tags.toArray();
+                log('test-output', `📊 Found ${allTags.length} total tags in database`);
+
+                // Helper function to get all descendant tags for a given tag
+                const getAllDescendantTags = (tags, parentId) => {
+                    const descendants = [];
+                    const children = tags.filter(tag => tag.parentId === parentId);
+
+                    for (const child of children) {
+                        descendants.push(child);
+                        descendants.push(...getAllDescendantTags(tags, child.id));
+                    }
+
+                    return descendants;
+                };
+
+                // Helper function to get unique prompt count for a tag and all its descendants
+                const getTagTreePromptCount = async (tags, tagId) => {
+                    // Get the tag itself and all its descendants
+                    const allRelevantTags = [
+                        tags.find(t => t.id === tagId),
+                        ...getAllDescendantTags(tags, tagId)
+                    ].filter(Boolean);
+
+                    // Get all prompt IDs that have any of these tags
+                    const allTagIds = allRelevantTags.map(t => t.id);
+                    const promptTagRelations = await db.promptTags.where('tagId').anyOf(allTagIds).toArray();
+                    const promptIds = [...new Set(promptTagRelations.map(pt => pt.promptId))]; // Remove duplicates
+
+                    // Filter to only latest versions
+                    const latestPrompts = await db.prompts.where('id').anyOf(promptIds).and(p => p.isLatest === 1).toArray();
+                    return latestPrompts.length;
+                };
+
+                const buildMainAppTree = async (tags, parentId = null, depth = 0) => {
+                    // Get tags for this level and sort them alphabetically by name
+                    const filteredTags = tags.filter(tag => tag.parentId === parentId)
+                        .sort((a, b) => a.name.localeCompare(b.name));
+
+                    if (filteredTags.length === 0) return '';
+
+                    let result = '';
+
+                    for (const tag of filteredTags) {
+                        // Get rollup count of unique prompts in this tag's entire subtree
+                        const promptCount = await getTagTreePromptCount(tags, tag.id);
+
+                        // Check if this tag has children
+                        const hasChildren = tags.some(t => t.parentId === tag.id);
+
+                        const indent = '  '.repeat(depth);
+                        const connector = depth > 0 ? '└─ ' : '';
+                        const childIndicator = hasChildren ? ' [PARENT]' : ' [LEAF]';
+
+                        result += `${indent}${connector}"${tag.fullPath}" (ID:${tag.id}, Level:${tag.level}, Count:${promptCount})${childIndicator}\n`;
+
+                        const childrenTree = await buildMainAppTree(tags, tag.id, depth + 1);
+                        if (childrenTree) {
+                            result += childrenTree;
+                        }
+                    }
+
+                    return result;
+                };
+
+                log('test-output', '<h4>🔍 Tree Structure (Using Main App Logic):</h4>');
+                const tree = await buildMainAppTree(allTags);
+
+                if (tree) {
+                    log('test-output', `<pre class="tree-visual">${tree}</pre>`);
+                } else {
+                    log('test-output', 'No tags found or all tags are orphaned', 'error');
+                }
+
+                // Compare with simple diagnostic tree
+                log('test-output', '<h4>📋 Raw Diagnostic Tree for Comparison:</h4>');
+                const simpleBuildTree = (parentId = null, depth = 0) => {
+                    const children = allTags.filter(t => t.parentId === parentId);
+                    let result = '';
+
+                    children.forEach(tag => {
+                        const indent = '  '.repeat(depth);
+                        const connector = depth > 0 ? '└─ ' : '';
+                        result += `${indent}${connector}"${tag.fullPath}" (ID:${tag.id}, Level:${tag.level})\n`;
+                        result += simpleBuildTree(tag.id, depth + 1);
+                    });
+
+                    return result;
+                };
+
+                const simpleTree = simpleBuildTree();
+                log('test-output', `<pre class="tree-visual">${simpleTree || 'No tags found'}</pre>`);
+
+                // Show specific analysis for coding/init
+                const codingTags = allTags.filter(t =>
+                    t.fullPath.includes('coding') ||
+                    t.fullPath.includes('init')
+                );
+
+                if (codingTags.length > 0) {
+                    log('test-output', '<h4>🔍 Coding/Init Specific Analysis:</h4>');
+                    for (const tag of codingTags) {
+                        const parentTag = tag.parentId ? allTags.find(t => t.id === tag.parentId) : null;
+                        const promptCount = await getTagTreePromptCount(allTags, tag.id);
+                        log('test-output', `
+                            <div class="test-result test-pass">
+                                Tag: "${tag.fullPath}" (ID: ${tag.id})<br>
+                                Parent: ${parentTag ? `"${parentTag.fullPath}" (ID: ${tag.parentId})` : 'ROOT'}<br>
+                                Level: ${tag.level}<br>
+                                Prompt Count: ${promptCount}
+                            </div>
+                        `);
+                    }
+                }
+
+            } catch (error) {
+                log('test-output', `❌ Full tree rendering failed: ${error.message}`, 'error');
+                console.error('Full tree rendering error:', error);
+            }
+        }
+
+        // Test tag creation
+        async function testTagCreation() {
+            clear('test-output');
+            if (!db) {
+                log('test-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                log('test-output', '🧪 Testing tag creation for "coding/init"...');
+
+                // Clear existing test tags
+                await db.tags.where('fullPath').startsWithIgnoreCase('coding').delete();
+
+                // Create the tag using the fixed function
+                const tagPath = 'coding/init';
+                const parts = tagPath.split('/');
+                let currentPath = '';
+                let parentId = null;
+                let lastCreatedId = null;
+
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i].trim();
+                    if (!part) continue;
+
+                    currentPath += (i > 0 ? '/' : '') + part;
+
+                    const existingPart = await db.tags.where('fullPath').equals(currentPath).first();
+                    if (existingPart) {
+                        parentId = existingPart.id;
+                        lastCreatedId = existingPart.id;
+                        log('test-output', `  Found existing: "${currentPath}" (ID: ${existingPart.id})`);
+                    } else {
+                        const newTagId = await db.tags.add({
+                            name: part,
+                            fullPath: currentPath,
+                            parentId: parentId,
+                            level: i
+                        });
+                        parentId = newTagId;
+                        lastCreatedId = newTagId;
+                        log('test-output', `  Created: "${currentPath}" (ID: ${newTagId}, parent: ${parentId === newTagId ? 'null' : 'previous'}, level: ${i})`);
+                    }
+                }
+
+                // Verify the result
+                const allCodingTags = await db.tags.where('fullPath').startsWithIgnoreCase('coding').toArray();
+                log('test-output', '<h4>📊 Result:</h4>');
+                allCodingTags.forEach(tag => {
+                    const className = tag.parentId ? 'test-pass' : 'test-pass';
+                    log('test-output', `
+                        <div class="test-result ${className}">
+                            "${tag.fullPath}" - Parent: ${tag.parentId || 'ROOT'}, Level: ${tag.level}
+                        </div>
+                    `);
+                });
+
+                // Test the tree rendering
+                log('test-output', '<h4>🌳 Tree Structure:</h4>');
+                await renderDiagnosticTree();
+
+            } catch (error) {
+                log('test-output', `❌ Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Fix the specific coding/init tag corruption
+        async function fixCodingInitTag() {
+            clear('specific-fix-output');
+            if (!db) {
+                log('specific-fix-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                log('specific-fix-output', '🔧 Fixing "coding/init" tag corruption...');
+
+                // Find the corrupted tag
+                const corruptedTag = await db.tags.get(31);
+                if (!corruptedTag) {
+                    log('specific-fix-output', '❌ Tag ID 31 not found', 'error');
+                    return;
+                }
+
+                log('specific-fix-output', `Found corrupted tag: "${corruptedTag.fullPath}" (ID: ${corruptedTag.id})`);
+                log('specific-fix-output', `Current parentId: ${corruptedTag.parentId} (should be 1)`);
+
+                // Find the correct parent (coding tag)
+                const parentTag = await db.tags.get(1);
+                if (!parentTag) {
+                    log('specific-fix-output', '❌ Parent tag "coding" (ID: 1) not found', 'error');
+                    return;
+                }
+
+                log('specific-fix-output', `Found parent tag: "${parentTag.fullPath}" (ID: ${parentTag.id})`);
+
+                // Fix the parentId
+                await db.tags.update(31, {
+                    parentId: 1
+                });
+
+                log('specific-fix-output', '✅ Fixed "coding/init" tag parentId', 'success');
+
+                // Verify the fix
+                const fixedTag = await db.tags.get(31);
+                log('specific-fix-output', `Verification: "${fixedTag.fullPath}" now has parentId: ${fixedTag.parentId}`, 'success');
+
+                // Test the tree
+                log('specific-fix-output', '<h4>🌳 Updated Tree:</h4>');
+                await renderFullExistingTree();
+
+            } catch (error) {
+                log('specific-fix-output', `❌ Fix failed: ${error.message}`, 'error');
+                console.error('Fix error:', error);
+            }
+        }
+
+        // Remove test tags but keep real user tags
+        async function removeTestTags() {
+            clear('specific-fix-output');
+            if (!db) {
+                log('specific-fix-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                log('specific-fix-output', '🧹 Removing test tags (keeping your real tags)...');
+
+                // Get all tags
+                const allTags = await db.tags.toArray();
+
+                // Identify test tags (IDs > 21, which are not in your original data)
+                const realTagIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 31];
+                const testTags = allTags.filter(tag => !realTagIds.includes(tag.id));
+
+                log('specific-fix-output', `Found ${testTags.length} test tags to remove`);
+
+                if (testTags.length === 0) {
+                    log('specific-fix-output', '✅ No test tags found to remove', 'success');
+                    return;
+                }
+
+                // Remove test tags
+                for (const testTag of testTags) {
+                    log('specific-fix-output', `Removing test tag: "${testTag.fullPath}" (ID: ${testTag.id})`);
+                    await db.tags.delete(testTag.id);
+                }
+
+                // Remove associated promptTag relationships for test tags
+                const testTagIds = testTags.map(t => t.id);
+                await db.promptTags.where('tagId').anyOf(testTagIds).delete();
+
+                log('specific-fix-output', `✅ Removed ${testTags.length} test tags`, 'success');
+
+                // Show the clean tree
+                log('specific-fix-output', '<h4>🌳 Clean Tree (Real Tags Only):</h4>');
+                await renderFullExistingTree();
+
+            } catch (error) {
+                log('specific-fix-output', `❌ Cleanup failed: ${error.message}`, 'error');
+                console.error('Cleanup error:', error);
+            }
+        }
+
+        // Analyze existing prompts
+        async function analyzePrompts() {
+            clear('prompts-output');
+            if (!db) {
+                log('prompts-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                log('prompts-output', '<h3>📋 Analyzing Your Existing Prompts</h3>');
+
+                // Get all prompts
+                const allPrompts = await db.prompts.where('isLatest').equals(1).toArray();
+                const allPromptTags = await db.promptTags.toArray();
+                const allTags = await db.tags.toArray();
+
+                log('prompts-output', `📊 Found ${allPrompts.length} prompts`);
+                log('prompts-output', `📊 Found ${allPromptTags.length} prompt-tag relationships`);
+                log('prompts-output', `📊 Found ${allTags.length} tags`);
+
+                if (allPrompts.length === 0) {
+                    log('prompts-output', '⚠️ No prompts found in database', 'error');
+                    return;
+                }
+
+                // Analyze each prompt
+                log('prompts-output', '<h4>📋 Your Prompts:</h4>');
+
+                for (const prompt of allPrompts.slice(0, 10)) { // Show first 10
+                    const promptTagRelations = allPromptTags.filter(pt => pt.promptId === prompt.id);
+                    const promptTagIds = promptTagRelations.map(pt => pt.tagId);
+                    const promptTags = allTags.filter(t => promptTagIds.includes(t.id));
+
+                    log('prompts-output', `
+                        <div class="tag-item">
+                            <strong>"${prompt.title}"</strong><br>
+                            Description: ${prompt.description || 'No description'}<br>
+                            Tag Relations: ${promptTagRelations.length}<br>
+                            Found Tags: ${promptTags.map(t => `"${t.fullPath}"`).join(', ') || 'NONE - All tags were deleted!'}
+                        </div>
+                    `);
+                }
+
+                if (allPrompts.length > 10) {
+                    log('prompts-output', `... and ${allPrompts.length - 10} more prompts`);
+                }
+
+                // Check for orphaned prompt-tag relations
+                const orphanedRelations = allPromptTags.filter(pt => {
+                    const tagExists = allTags.some(t => t.id === pt.tagId);
+                    return !tagExists;
+                });
+
+                if (orphanedRelations.length > 0) {
+                    log('prompts-output', `⚠️ Found ${orphanedRelations.length} orphaned prompt-tag relationships`, 'error');
+                    log('prompts-output', 'These relationships point to tags that no longer exist (were deleted)');
+
+                    // Show which prompts are affected
+                    const affectedPromptIds = [...new Set(orphanedRelations.map(r => r.promptId))];
+                    const affectedPrompts = allPrompts.filter(p => affectedPromptIds.includes(p.id));
+
+                    log('prompts-output', `📋 Affected prompts (${affectedPrompts.length}):`);
+                    affectedPrompts.slice(0, 5).forEach(prompt => {
+                        log('prompts-output', `  - "${prompt.title}"`);
+                    });
+
+                    if (affectedPrompts.length > 5) {
+                        log('prompts-output', `  ... and ${affectedPrompts.length - 5} more`);
+                    }
+                }
+
+                // Suggest next steps
+                log('prompts-output', '<h4>💡 Next Steps:</h4>');
+                if (allTags.length === 0) {
+                    log('prompts-output', '1. Your tags were accidentally deleted', 'error');
+                    log('prompts-output', '2. Your prompts still exist but have no tags', 'error');
+                    log('prompts-output', '3. You\'ll need to re-tag your prompts in the main application');
+                    log('prompts-output', '4. First, let\'s fix the createOrGetTag function to prevent future corruption');
+                } else {
+                    log('prompts-output', '✅ Your prompts and tags look intact', 'success');
+                }
+
+            } catch (error) {
+                log('prompts-output', `❌ Analysis failed: ${error.message}`, 'error');
+                console.error('Prompt analysis error:', error);
+            }
+        }
+
+        // Repair corrupted hierarchy
+        async function repairCorruptedHierarchy() {
+            clear('fix-output');
+            if (!db) {
+                log('fix-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                log('fix-output', '🔧 Analyzing and repairing corrupted tag hierarchy...');
+
+                const allTags = await db.tags.toArray();
+                log('fix-output', `📊 Found ${allTags.length} existing tags`);
+
+                // Find tags that should have parent tags but don't OR have wrong parentId
+                const corruptedTags = [];
+                const missingParents = new Set();
+
+                for (const tag of allTags) {
+                    if (tag.fullPath.includes('/')) {
+                        // This is a hierarchical tag
+                        const pathParts = tag.fullPath.split('/');
+
+                        // Check if the immediate parent exists and is correctly linked
+                        const expectedParentPath = pathParts.slice(0, -1).join('/');
+                        const expectedParent = allTags.find(t => t.fullPath === expectedParentPath);
+
+                        if (!expectedParent) {
+                            // Parent doesn't exist - need to create it
+                            log('fix-output', `⚠️ Missing parent: "${expectedParentPath}" for tag "${tag.fullPath}"`);
+                            corruptedTags.push(tag);
+                            missingParents.add(expectedParentPath);
+                        } else if (tag.parentId !== expectedParent.id) {
+                            // Parent exists but tag has wrong parentId
+                            log('fix-output', `⚠️ Wrong parentId: "${tag.fullPath}" has parentId ${tag.parentId}, should be ${expectedParent.id} ("${expectedParent.fullPath}")`);
+                            corruptedTags.push(tag);
+                        }
+
+                        // Also check if all ancestor parent paths exist
+                        for (let i = 1; i < pathParts.length - 1; i++) {
+                            const ancestorPath = pathParts.slice(0, i).join('/');
+                            const ancestorExists = allTags.find(t => t.fullPath === ancestorPath);
+
+                            if (!ancestorExists) {
+                                log('fix-output', `⚠️ Missing ancestor: "${ancestorPath}" for tag "${tag.fullPath}"`);
+                                missingParents.add(ancestorPath);
+                            }
+                        }
+                    }
+                }
+
+                if (corruptedTags.length === 0) {
+                    log('fix-output', '✅ No hierarchy corruption detected', 'success');
+                    return;
+                }
+
+                log('fix-output', `🔍 Found ${corruptedTags.length} corrupted tags`);
+                log('fix-output', `🔍 Need to create ${missingParents.size} missing parent tags`);
+
+                // Create missing parent tags
+                const sortedMissingParents = Array.from(missingParents).sort();
+
+                for (const parentPath of sortedMissingParents) {
+                    const pathParts = parentPath.split('/');
+                    const parentName = pathParts[pathParts.length - 1];
+                    const level = pathParts.length - 1;
+
+                    // Find the correct parentId
+                    let parentId = null;
+                    if (level > 0) {
+                        const grandParentPath = pathParts.slice(0, -1).join('/');
+                        const grandParent = await db.tags.where('fullPath').equals(grandParentPath).first();
+                        parentId = grandParent ? grandParent.id : null;
+                    }
+
+                    log('fix-output', `➕ Creating missing parent: "${parentPath}" (level: ${level}, parentId: ${parentId})`);
+
+                    const newParentId = await db.tags.add({
+                        name: parentName,
+                        fullPath: parentPath,
+                        parentId: parentId,
+                        level: level
+                    });
+
+                    log('fix-output', `✅ Created parent tag "${parentPath}" with ID: ${newParentId}`);
+                }
+
+                // Now fix the corrupted child tags
+                for (const tag of corruptedTags) {
+                    const pathParts = tag.fullPath.split('/');
+                    const expectedParentPath = pathParts.slice(0, -1).join('/');
+                    const expectedLevel = pathParts.length - 1;
+
+                    // Find the correct parent
+                    const correctParent = await db.tags.where('fullPath').equals(expectedParentPath).first();
+
+                    if (correctParent) {
+                        log('fix-output', `🔧 Fixing tag "${tag.fullPath}": setting parentId to ${correctParent.id}, level to ${expectedLevel}`);
+
+                        await db.tags.update(tag.id, {
+                            parentId: correctParent.id,
+                            level: expectedLevel
+                        });
+
+                        log('fix-output', `✅ Fixed tag "${tag.fullPath}"`);
+                    } else {
+                        log('fix-output', `❌ Could not find parent for "${tag.fullPath}"`, 'error');
+                    }
+                }
+
+                log('fix-output', '🎉 Hierarchy repair completed!', 'success');
+                log('fix-output', '🔄 Testing repaired hierarchy...');
+
+                // Test the repaired hierarchy
+                await renderFullExistingTree();
+
+            } catch (error) {
+                log('fix-output', `❌ Repair failed: ${error.message}`, 'error');
+                console.error('Repair error:', error);
+            }
+        }
+
+        // Recreate test tags with fixed logic
+        async function recreateTestTags() {
+            clear('fix-output');
+            if (!db) {
+                log('fix-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            try {
+                log('fix-output', '🏗️ Creating test tags with fixed hierarchy logic...');
+
+                // Test tags to create with proper hierarchy
+                const testTags = [
+                    'coding/init',
+                    'coding/javascript',
+                    'coding/python/django',
+                    'coding/python/flask',
+                    'design/ui/buttons',
+                    'design/ux',
+                    'project/planning',
+                    'project/development/frontend',
+                    'project/development/backend'
+                ];
+
+                // Fixed createOrGetTag function
+                const createOrGetTagFixed = async (tagPath) => {
+                    // Check if tag already exists
+                    const existingTag = await db.tags.where('fullPath').equals(tagPath).first();
+                    if (existingTag) return existingTag;
+
+                    // Parse hierarchical path
+                    const parts = tagPath.split('/');
+                    let currentPath = '';
+                    let parentId = null;
+                    let lastCreatedId = null;
+
+                    for (let i = 0; i < parts.length; i++) {
+                        const part = parts[i].trim();
+                        if (!part) continue; // Skip empty parts
+
+                        currentPath += (i > 0 ? '/' : '') + part;
+
+                        const existingPart = await db.tags.where('fullPath').equals(currentPath).first();
+                        if (existingPart) {
+                            // Tag already exists, use it as parent for next level
+                            parentId = existingPart.id;
+                            lastCreatedId = existingPart.id;
+                            log('fix-output', `  ✅ Found existing: "${currentPath}" (ID: ${existingPart.id})`);
+                        } else {
+                            // Create new tag with correct parent relationship
+                            const newTagId = await db.tags.add({
+                                name: part,
+                                fullPath: currentPath,
+                                parentId: parentId, // This will be null for root tags, correct parentId for children
+                                level: i
+                            });
+                            parentId = newTagId; // Set this as parent for next level
+                            lastCreatedId = newTagId;
+                            log('fix-output', `  ➕ Created: "${currentPath}" (ID: ${newTagId}, parentId: ${parentId === newTagId ? 'null' : parentId}, level: ${i})`);
+                        }
+                    }
+
+                    return await db.tags.get(lastCreatedId);
+                };
+
+                // Create all test tags
+                for (const tagPath of testTags) {
+                    log('fix-output', `<h4>🏷️ Creating tag: "${tagPath}"</h4>`);
+                    const result = await createOrGetTagFixed(tagPath);
+                    log('fix-output', `✅ Final tag created: "${result.fullPath}" (ID: ${result.id})`);
+                }
+
+                log('fix-output', '<h3>🎉 All test tags created successfully!</h3>', 'success');
+
+                // Show the resulting tree
+                log('fix-output', '<h4>🌳 Resulting Tree Structure:</h4>');
+                await renderFullExistingTree();
+
+                // Show tag count
+                const tagCount = await db.tags.count();
+                log('fix-output', `📊 Total tags in database: ${tagCount}`, 'success');
+
+            } catch (error) {
+                log('fix-output', `❌ Tag creation failed: ${error.message}`, 'error');
+                console.error('Tag creation error:', error);
+            }
+        }
+
+        // Clean and recreate
+        async function cleanAndRecreate() {
+            clear('fix-output');
+            if (!db) {
+                log('fix-output', '❌ Connect to database first', 'error');
+                return;
+            }
+
+            if (!confirm('This will delete all existing tags. Continue?')) {
+                return;
+            }
+
+            try {
+                log('fix-output', '🧹 Cleaning existing tags...');
+                await db.tags.clear();
+                await db.promptTags.clear();
+
+                log('fix-output', '✅ All tags cleared');
+                log('fix-output', '🎯 Ready for fresh tag creation test');
+
+            } catch (error) {
+                log('fix-output', `❌ Clean failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            initDatabase();
+        });
+    </script>
+</body>
+</html>

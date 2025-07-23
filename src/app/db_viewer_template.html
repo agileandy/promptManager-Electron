@@ -16,6 +16,46 @@
         .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
         .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        /* Accordion styles */
+        .accordion { margin: 20px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .accordion-header {
+            background: #f8f9fa;
+            padding: 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-header:hover { background: #e9ecef; }
+        .accordion-header.active { background: #007acc; color: white; }
+        .accordion-content {
+            display: none;
+            padding: 15px;
+        }
+        .accordion-content.active { display: block; }
+        .accordion-toggle { font-weight: bold; }
+
+        /* Button styles */
+        .button-group { text-align: center; margin: 20px 0; }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #005a99; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Tag diagnostic styles */
+        .tag-diagnostic { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 10px 0; }
+        .diagnostic-section { margin: 15px 0; padding: 10px; border-left: 3px solid #007acc; }
+        .tree-visual { background: #f8f9fa; padding: 10px; font-family: monospace; white-space: pre; border: 1px solid #ddd; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -24,13 +64,24 @@
             <h1>Database Content Viewer</h1>
             <p>Current database structure and content</p>
             <div id="dataPath" class="status success"></div>
+
+            <div class="button-group">
+                <button onclick="refreshData()">🔄 Refresh Data</button>
+                <button onclick="showTagDiagnostic()">🏷️ Tag Diagnostic</button>
+            </div>
         </div>
+
+        <div id="tag-diagnostic" class="tag-diagnostic" style="display: none;">
+            <h2>Tag Hierarchy Diagnostic</h2>
+            <div id="diagnostic-output"></div>
+        </div>
+
         <div id="output"></div>
     </div>
 
     <script>
         const db = new Dexie('AIPromptManagerDB');
-        
+
         db.version(4).stores({
             prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
             folders: '++id, name, parentId',
@@ -41,36 +92,150 @@
         async function viewDatabase() {
             const output = document.getElementById('output');
             const dataPath = document.getElementById('dataPath');
-            
+
+            // Clear previous output
+            output.innerHTML = '';
+
             // Show data path
             const userData = await window.electronAPI.getDataDir();
             dataPath.innerHTML = `Data Location: ${userData}/IndexedDB`;
-            
+
             try {
                 await db.open();
                 output.innerHTML += '<div class="status success">Database opened successfully</div>';
-                
+
                 const tables = ['prompts', 'folders', 'tags', 'promptTags'];
-                
+
                 for (const tableName of tables) {
                     const table = db[tableName];
                     const count = await table.count();
                     const data = await table.toArray();
-                    
+
                     output.innerHTML += `
-                        <div class="table">
-                            <h3>${tableName} (${count} records)</h3>
-                            ${count === 0 ? 
-                                '<div class="empty">No data found</div>' : 
-                                `<div class="data"><pre>${JSON.stringify(data, null, 2)}</pre></div>`
-                            }
+                        <div class="accordion">
+                            <div class="accordion-header" onclick="toggleAccordion('${tableName}')">
+                                <span><strong>${tableName}</strong> (${count} records)</span>
+                                <span class="accordion-toggle" id="${tableName}-toggle">▼</span>
+                            </div>
+                            <div class="accordion-content" id="${tableName}-content">
+                                ${count === 0 ?
+                                    '<div class="empty">No data found</div>' :
+                                    `<div class="data"><pre>${JSON.stringify(data, null, 2)}</pre></div>`
+                                }
+                            </div>
                         </div>
                     `;
                 }
-                
+
             } catch (error) {
                 output.innerHTML += `<div class="status error">Error: ${error.message}</div>`;
                 console.error('Database error:', error);
+            }
+        }
+
+        function refreshData() {
+            viewDatabase();
+        }
+
+        function toggleAccordion(tableName) {
+            const content = document.getElementById(`${tableName}-content`);
+            const toggle = document.getElementById(`${tableName}-toggle`);
+            const header = content.previousElementSibling;
+
+            if (content.classList.contains('active')) {
+                content.classList.remove('active');
+                header.classList.remove('active');
+                toggle.textContent = '▼';
+            } else {
+                content.classList.add('active');
+                header.classList.add('active');
+                toggle.textContent = '▲';
+            }
+        }
+
+        async function showTagDiagnostic() {
+            const diagnosticDiv = document.getElementById('tag-diagnostic');
+            const diagnosticOutput = document.getElementById('diagnostic-output');
+
+            // Toggle visibility
+            if (diagnosticDiv.style.display === 'none') {
+                diagnosticDiv.style.display = 'block';
+                await runTagDiagnostic();
+            } else {
+                diagnosticDiv.style.display = 'none';
+            }
+        }
+
+        async function runTagDiagnostic() {
+            const output = document.getElementById('diagnostic-output');
+            output.innerHTML = '<div class="status">Running tag hierarchy diagnostic...</div>';
+
+            try {
+                const allTags = await db.tags.toArray();
+                const allPromptTags = await db.promptTags.toArray();
+
+                output.innerHTML = `
+                    <div class="diagnostic-section">
+                        <h3>📊 Tag Statistics</h3>
+                        <p>Total tags: ${allTags.length}</p>
+                        <p>Total tag relationships: ${allPromptTags.length}</p>
+                    </div>
+                `;
+
+                // Hierarchy Analysis
+                const rootTags = allTags.filter(t => t.parentId === null);
+                const childTags = allTags.filter(t => t.parentId !== null);
+                const orphanTags = [];
+
+                // Check for orphaned children
+                childTags.forEach(child => {
+                    const parentExists = allTags.find(t => t.id === child.parentId);
+                    if (!parentExists) {
+                        orphanTags.push(child);
+                    }
+                });
+
+                output.innerHTML += `
+                    <div class="diagnostic-section">
+                        <h3>🌳 Hierarchy Analysis</h3>
+                        <p>Root tags: ${rootTags.length}</p>
+                        <p>Child tags: ${childTags.length}</p>
+                        <p>Orphaned tags: ${orphanTags.length}</p>
+                        ${orphanTags.length > 0 ?
+                            '<div class="error">⚠️ Found orphaned tags: ' +
+                            orphanTags.map(t => `"${t.fullPath}" (parentId: ${t.parentId})`).join(', ') +
+                            '</div>' : ''
+                        }
+                    </div>
+                `;
+
+                // Tree Visualization
+                const buildTree = (parentId = null, depth = 0) => {
+                    const children = allTags.filter(t => t.parentId === parentId)
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                    let result = '';
+
+                    children.forEach(tag => {
+                        const indent = '  '.repeat(depth);
+                        const connector = depth > 0 ? '└─ ' : '';
+                        result += `${indent}${connector}"${tag.fullPath}" (ID:${tag.id}, Level:${tag.level})\n`;
+                        result += buildTree(tag.id, depth + 1);
+                    });
+
+                    return result;
+                };
+
+                const tree = buildTree();
+                output.innerHTML += `
+                    <div class="diagnostic-section">
+                        <h3>🌲 Tag Tree Structure</h3>
+                        <div class="tree-visual">${tree || 'No tags found or all orphaned'}</div>
+                    </div>
+                `;
+
+            } catch (error) {
+                output.innerHTML = `<div class="status error">Diagnostic failed: ${error.message}</div>`;
+                console.error('Diagnostic error:', error);
             }
         }
 

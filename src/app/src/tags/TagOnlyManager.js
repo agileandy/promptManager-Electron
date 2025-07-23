@@ -203,44 +203,65 @@ class TagOnlyManager {
     }
 
     /**
-     * Find existing tag or create new one
+     * Find existing tag or create new one with proper hierarchy
      *
      * @private
      * @param {string} tagPath - Full path of the tag
      * @returns {Promise<Object>} Tag object
      */
     async _findOrCreateTag(tagPath) {
+        console.log(`TagOnlyManager: Finding/creating tag: "${tagPath}"`);
+
         // Try to find existing tag by fullPath first
         let tag = await this.db.tags.where('fullPath').equals(tagPath).first();
 
-        if (!tag) {
-            // Try to find by name as fallback for existing tags
-            const tagName = tagPath.split('/').pop();
-            tag = await this.db.tags.where('name').equals(tagName).first();
+        if (tag) {
+            console.log(`TagOnlyManager: Found existing tag: "${tagPath}" (ID: ${tag.id})`);
+            return tag;
+        }
 
-            if (tag) {
-                // Update existing tag with fullPath if missing
-                await this.db.tags.update(tag.id, { fullPath: tagPath });
-                tag.fullPath = tagPath;
+        // Tag doesn't exist, create with proper hierarchy
+        const parts = tagPath.split('/');
+        let parentId = null;
+        let lastCreatedId = null;
+
+        // Create or find each level of the hierarchy
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i].trim();
+            if (!part) continue; // Skip empty parts
+
+            // Build the full path up to this level
+            const currentPath = parts.slice(0, i + 1).join('/');
+
+            console.log(`TagOnlyManager: Processing level ${i}: "${part}" -> fullPath: "${currentPath}", parentId: ${parentId}`);
+
+            // Check if this level already exists
+            const existingPart = await this.db.tags.where('fullPath').equals(currentPath).first();
+            if (existingPart) {
+                console.log(`TagOnlyManager: Found existing part: "${currentPath}" (ID: ${existingPart.id})`);
+                parentId = existingPart.id;
+                lastCreatedId = existingPart.id;
+            } else {
+                // Create new tag with correct parent relationship
+                const newTag = {
+                    name: part,
+                    fullPath: currentPath,
+                    parentId: parentId, // null for root tags, correct parentId for children
+                    level: i
+                };
+
+                console.log(`TagOnlyManager: Creating new tag:`, newTag);
+                const newTagId = await this.db.tags.add(newTag);
+                console.log(`TagOnlyManager: Created tag "${currentPath}" with ID: ${newTagId}`);
+
+                parentId = newTagId; // This becomes the parent for the next level
+                lastCreatedId = newTagId;
             }
         }
 
-        if (!tag) {
-            // Create new tag if it doesn't exist
-            const tagParts = tagPath.split('/');
-            const tagName = tagParts[tagParts.length - 1];
-
-            const tagId = await this.db.tags.add({
-                name: tagName,
-                fullPath: tagPath,
-                parentId: null, // Simplified - could be enhanced for hierarchy
-                level: tagParts.length - 1
-            });
-
-            tag = await this.db.tags.get(tagId);
-        }
-
-        return tag;
+        const finalTag = await this.db.tags.get(lastCreatedId);
+        console.log(`TagOnlyManager: Final tag result:`, finalTag);
+        return finalTag;
     }
 
     /**

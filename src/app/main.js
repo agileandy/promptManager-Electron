@@ -1,3 +1,8 @@
+/**
+ * Main Electron application file
+ * Handles application lifecycle, window management, and IPC communication
+ */
+
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -6,9 +11,20 @@ const os = require('os');
 // Use Electron's default userData directory (no custom path)
 // This will automatically use: ~/Library/Application Support/promptmanager-electron
 
+// AI Service variables
+let aiService = null;
+let aiConfig = null;
+
+// Main window reference
+let mainWindow = null;
+
+/**
+ * Creates the main application window
+ * @returns {BrowserWindow} The created browser window instance
+ */
 function createWindow () {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     icon: path.join(__dirname, 'assets', 'icon.png'), // Updated to include icon
@@ -48,10 +64,6 @@ ipcMain.handle('open-database-viewer', () => {
 ipcMain.handle('get-data-dir', () => {
   return app.getPath('userData');
 });
-
-// AI Service variables
-let aiService = null;
-let aiConfig = null;
 
 // Register AI IPC handlers when app is ready
 function registerAIHandlers() {
@@ -311,21 +323,44 @@ function registerAIHandlers() {
   console.log('All AI IPC handlers registered successfully');
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-  // Register AI IPC handlers before creating window
-  registerAIHandlers();
+/**
+ * Single Instance Detection
+ * Ensures only one instance of the application runs at a time.
+ * When a second instance is launched, the existing instance is activated.
+ */
 
-  createWindow();
-
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+// Handle second instance
+app.on('second-instance', (event, commandLine, workingDirectory) => {
+  // Someone tried to run a second instance, we should focus our window.
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
 });
+
+// Check for single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // If we can't get the lock, another instance is already running
+  app.quit();
+} else {
+  // This method will be called when Electron has finished
+  // initialization and is ready to create browser windows.
+  // Some APIs can only be used after this event occurs.
+  app.whenReady().then(() => {
+    // Register AI IPC handlers before creating window
+    registerAIHandlers();
+
+    createWindow();
+
+    app.on('activate', function () {
+      // On macOS it's common to re-create a window in the app when the
+      // dock icon is clicked and there are no other windows open.
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

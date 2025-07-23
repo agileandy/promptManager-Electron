@@ -127,8 +127,12 @@ class CreateTagCommand extends TagCommandInterface {
             errors.push('Tag name cannot be empty');
         } else if (params.tagName.length > 50) {
             errors.push('Tag name cannot exceed 50 characters');
-        } else if (!/^[a-zA-Z0-9\s\-_]+$/.test(params.tagName)) {
-            errors.push('Tag name can only contain letters, numbers, spaces, hyphens, and underscores');
+        } else if (!/^[a-zA-Z0-9\s\-_/]+$/.test(params.tagName)) {
+            errors.push('Tag name can only contain letters, numbers, spaces, hyphens, underscores, and forward slashes');
+        } else if (params.tagName.includes('//')) {
+            errors.push('Tag name cannot contain consecutive forward slashes');
+        } else if (params.tagName.startsWith('/') || params.tagName.endsWith('/')) {
+            errors.push('Tag name cannot start or end with forward slash');
         }
 
         // Validate tag color
