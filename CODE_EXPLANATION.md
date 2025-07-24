@@ -127,7 +127,7 @@ async function initializeAIService() {
   const result = await window.electronAPI.ai.initialize();
   if (result.success) {
     aiService = {
-      generateDescription: (desc, provider) => 
+      generateDescription: (desc, provider) =>
         window.electronAPI.ai.generateDescription(desc, provider)
     };
   }
@@ -145,11 +145,123 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   ai: {
     initialize: () => ipcRenderer.invoke('ai-initialize'),
-    generateDescription: (desc, provider) => 
+    generateDescription: (desc, provider) =>
       ipcRenderer.invoke('ai-generate-description', desc, provider)
   }
 });
 ```
+
+### 4. UI Components
+
+#### ReadOnlyViewerModal
+
+**Purpose**: Provides a read-only view of prompt content with syntax highlighting and copy functionality.
+
+**Location**: `src/app/html-partials/ReadOnlyViewerModal.html`
+
+**Key Features**:
+- **Syntax Highlighting**: Uses Prism.js for code syntax highlighting
+- **Copy to Clipboard**: Button to copy prompt text to clipboard
+- **Responsive Design**: Works on different screen sizes
+- **Accessibility**: Proper ARIA labels and keyboard navigation
+- **Dark/Light Theme Support**: Adapts to user's theme preference
+
+**HTML Structure**:
+```html
+<div id="readOnlyModal" class="modal hidden">
+  <div class="modal-content bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-90vh overflow-hidden">
+    <div class="modal-header bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Prompt Details</h3>
+      <button onclick="closeReadOnlyModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300">
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+        <p id="readOnlyTitle" class="text-gray-900 dark:text-white"></p>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+        <p id="readOnlyDescription" class="text-gray-900 dark:text-white"></p>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags</label>
+        <div id="readOnlyTags" class="flex flex-wrap gap-2"></div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt Content</label>
+        <div class="relative">
+          <button onclick="copyToClipboard()" class="absolute right-2 top-2 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-md text-sm z-10">
+            Copy
+          </button>
+          <pre class="bg-gray-50 dark:bg-gray-900 p-4 rounded-md overflow-x-auto mt-2">
+            <code id="readOnlyContent" class="language-javascript text-sm"></code>
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+**JavaScript Integration**:
+```javascript
+// Show modal with prompt data
+function showReadOnlyModal(promptData) {
+  document.getElementById('readOnlyTitle').textContent = promptData.title;
+  document.getElementById('readOnlyDescription').textContent = promptData.description;
+
+  // Clear and populate tags
+  const tagsContainer = document.getElementById('readOnlyTags');
+  tagsContainer.innerHTML = '';
+  promptData.tags.forEach(tag => {
+    const tagElement = document.createElement('span');
+    tagElement.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+    tagElement.textContent = tag.name;
+    tagsContainer.appendChild(tagElement);
+  });
+
+  // Set content and highlight syntax
+  const contentElement = document.getElementById('readOnlyContent');
+  contentElement.textContent = promptData.text;
+  Prism.highlightElement(contentElement);
+
+  // Show modal
+  document.getElementById('readOnlyModal').classList.remove('hidden');
+}
+
+// Close modal
+function closeReadOnlyModal() {
+  document.getElementById('readOnlyModal').classList.add('hidden');
+}
+
+// Copy to clipboard
+function copyToClipboard() {
+  const content = document.getElementById('readOnlyContent').textContent;
+  navigator.clipboard.writeText(content).then(() => {
+    // Show success feedback
+    const button = document.querySelector('#readOnlyModal button');
+    const originalText = button.textContent;
+    button.textContent = 'Copied!';
+    setTimeout(() => {
+      button.textContent = originalText;
+    }, 2000);
+  });
+}
+```
+
+**CSS Styling**:
+- Uses Tailwind CSS for responsive design
+- Dark mode support with `dark:` prefix classes
+- Responsive layout that works on mobile and desktop
+- Smooth transitions and hover effects
+- Proper spacing and typography
+
+**Usage**:
+The ReadOnlyViewerModal is used throughout the application to display prompt details in a consistent, user-friendly way. It's triggered when users click on a prompt in the list or use keyboard shortcuts to view details.
 
 ## Database Design
 
@@ -160,17 +272,16 @@ The application uses **IndexedDB** via Dexie.js with a well-structured schema:
 db.version(4).stores({
   // Core prompt storage with versioning support
   prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
-  
-  // Hierarchical folder structure
-  folders: '++id,name,parentId',
-  
+
   // Hierarchical tag system with full path indexing
   tags: '++id,name,fullPath,parentId,level',
-  
+
   // Many-to-many relationship between prompts and tags
   promptTags: '++id,promptId,tagId'
 });
 ```
+
+**Note**: The `folders` table exists in the schema for legacy compatibility but is not actively used. Organization is handled through the hierarchical tag system using the `/` separator (e.g., `development/frontend/react`).
 
 ### Data Relationships
 ```
@@ -236,11 +347,11 @@ class BaseProvider {
   async generateText(prompt, options = {}) {
     throw new Error('Must be implemented by subclass');
   }
-  
+
   async testConnection() {
     throw new Error('Must be implemented by subclass');
   }
-  
+
   async getAvailableModels() {
     throw new Error('Must be implemented by subclass');
   }
@@ -250,18 +361,23 @@ class BaseProvider {
 #### Response Processing (Decorator Pattern)
 ```javascript
 // Response processing pipeline
-const decoratorChainManager = {
-  decorators: [
-    new ValidationDecorator(),
-    new SanitizationDecorator(),
-    new FormattingDecorator()
-  ],
-  
-  process(response) {
-    return this.decorators.reduce((result, decorator) => 
-      decorator.process(result), response);
+const { decoratorChainManager } = require('./src/ai/decorators/index.js');
+
+// Add custom decorator
+class CustomResponseDecorator extends BaseDecorator {
+  async process(response) {
+    // Add custom processing logic
+    response.processedBy = response.processedBy || [];
+    response.processedBy.push('custom-decorator');
+    return response;
   }
-};
+}
+
+// Register decorator
+decoratorChainManager.addDecorator(new CustomResponseDecorator());
+
+// Process AI response through the chain
+const processedResponse = await decoratorChainManager.process(rawResponse);
 ```
 
 ### 2. Tag Management System
@@ -284,28 +400,243 @@ const decoratorChainManager = {
 ```javascript
 // Base command interface
 class TagCommandInterface {
-  async execute() {
-    throw new Error('Must be implemented by subclass');
+  /**
+   * Execute the tag command with proper state isolation
+   * @param {Object} context - Execution context containing state and dependencies
+   * @returns {Promise<TagOperationResult>} Result of the tag operation
+   */
+  async executeWithContext(context) {
+    throw new Error('executeWithContext must be implemented by concrete command classes');
+  }
+
+  /**
+   * Validate the command parameters before execution
+   * @param {Object} params - Command-specific parameters
+   * @returns {ValidationResult} Validation result with success/failure and messages
+   */
+  validate(params) {
+    throw new Error('validate must be implemented by concrete command classes');
+  }
+
+  /**
+   * Get the command type identifier
+   * @returns {string} Command type for logging and event tracking
+   */
+  getCommandType() {
+    throw new Error('getCommandType must be implemented by concrete command classes');
+  }
+
+  /**
+   * Check if the command can be undone
+   * @returns {boolean} True if command supports undo operations
+   */
+  isUndoable() {
+    return false;
+  }
+
+  /**
+   * Create undo command if supported
+   * @param {TagOperationResult} executionResult - Result from the original execution
+   * @returns {TagCommandInterface|null} Undo command or null if not supported
+   */
+  createUndoCommand(executionResult) {
+    return null;
   }
 }
 
 // Concrete command implementations
 class CreateTagCommand extends TagCommandInterface {
-  constructor(db, tagPath) {
+  /**
+   * Initialize the create tag command
+   * @param {Object} params - Command parameters
+   * @param {string} params.tagName - Name of the tag to create
+   * @param {string} params.tagColor - Color for the tag (optional)
+   * @param {string} params.description - Tag description (optional)
+   * @param {Array<string>} params.promptIds - Initial prompt IDs to associate (optional)
+   */
+  constructor(params) {
     super();
-    this.db = db;
-    this.tagPath = tagPath;
+    this.params = {
+      tagName: params.tagName,
+      tagColor: params.tagColor || '#007bff',
+      description: params.description || '',
+      promptIds: params.promptIds || []
+    };
   }
 
-  async execute() {
-    const pathParts = this.tagPath.split('/');
-    let parentId = null;
-    
-    for (let i = 0; i < pathParts.length; i++) {
-      const currentPath = pathParts.slice(0, i + 1).join('/');
-      const tag = await this.findOrCreateTag(currentPath, parentId, i);
-      parentId = tag.id;
+  /**
+   * Execute the create tag command with state isolation
+   * @param {Object} context - Execution context
+   * @returns {Promise<TagOperationResult>}
+   */
+  async executeWithContext(context) {
+    try {
+      // Validate parameters before execution
+      const validation = this.validate(this.params);
+      if (!validation.isValid) {
+        return TagOperationResult.failure(
+          new TagOperationError(
+            `Validation failed: ${validation.messages.join(', ')}`,
+            'VALIDATION_ERROR'
+          )
+        );
+      }
+
+      const { tagStateManager, eventPublisher, transactionManager } = context;
+
+      // Check if tag already exists
+      const existingTag = await tagStateManager.findTagByName(this.params.tagName);
+      if (existingTag) {
+        return TagOperationResult.failure(
+          new TagOperationError(
+            `Tag '${this.params.tagName}' already exists`,
+            'TAG_ALREADY_EXISTS'
+          )
+        );
+      }
+
+      // Execute within isolated transaction
+      const result = await transactionManager.executeTransaction(async (transaction) => {
+        // Create the tag entity
+        const tagId = await this._generateTagId();
+        const tagEntity = {
+          id: tagId,
+          name: this.params.tagName,
+          color: this.params.tagColor,
+          description: this.params.description,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          promptCount: this.params.promptIds.length
+        };
+
+        // Persist tag in isolated state
+        await tagStateManager.createTag(tagEntity, transaction);
+
+        // Create tag-prompt relationships if specified
+        if (this.params.promptIds.length > 0) {
+          await tagStateManager.associatePromptsWithTag(
+            tagId,
+            this.params.promptIds,
+            transaction
+          );
+        }
+
+        return tagEntity;
+      });
+
+      // Publish events for UI synchronization (outside transaction)
+      await eventPublisher.publishTagCreated({
+        tagId: result.id,
+        tagName: result.name,
+        promptIds: this.params.promptIds,
+        timestamp: result.createdAt
+      });
+
+      return TagOperationResult.success(result, {
+        commandType: this.getCommandType(),
+        affectedPrompts: this.params.promptIds.length
+      });
+
+    } catch (error) {
+      return TagOperationResult.failure(
+        new TagOperationError(
+          `Failed to create tag: ${error.message}`,
+          'CREATE_TAG_ERROR',
+          { originalError: error }
+        )
+      );
     }
+  }
+
+  /**
+   * Validate create tag parameters
+   * @param {Object} params - Parameters to validate
+   * @returns {ValidationResult}
+   */
+  validate(params) {
+    const errors = [];
+
+    // Validate tag name
+    if (!params.tagName || typeof params.tagName !== 'string') {
+      errors.push('Tag name is required and must be a string');
+    } else if (params.tagName.trim().length === 0) {
+      errors.push('Tag name cannot be empty');
+    } else if (params.tagName.length > 50) {
+      errors.push('Tag name cannot exceed 50 characters');
+    } else if (!/^[a-zA-Z0-9\s\-_/]+$/.test(params.tagName)) {
+      errors.push('Tag name can only contain letters, numbers, spaces, hyphens, underscores, and forward slashes');
+    } else if (params.tagName.includes('//')) {
+      errors.push('Tag name cannot contain consecutive forward slashes');
+    } else if (params.tagName.startsWith('/') || params.tagName.endsWith('/')) {
+      errors.push('Tag name cannot start or end with forward slash');
+    }
+
+    // Validate tag color
+    if (params.tagColor && !/^#[0-9A-Fa-f]{6}$/.test(params.tagColor)) {
+      errors.push('Tag color must be a valid hex color code (e.g., #007bff)');
+    }
+
+    // Validate description
+    if (params.description && params.description.length > 200) {
+      errors.push('Tag description cannot exceed 200 characters');
+    }
+
+    // Validate prompt IDs
+    if (params.promptIds && !Array.isArray(params.promptIds)) {
+      errors.push('Prompt IDs must be an array');
+    } else if (params.promptIds) {
+      const invalidIds = params.promptIds.filter(id => typeof id !== 'string' || id.trim().length === 0);
+      if (invalidIds.length > 0) {
+        errors.push('All prompt IDs must be non-empty strings');
+      }
+    }
+
+    return errors.length === 0 ? ValidationResult.valid() : ValidationResult.invalid(errors);
+  }
+
+  /**
+   * Get command type identifier
+   * @returns {string}
+   */
+  getCommandType() {
+    return 'CREATE_TAG';
+  }
+
+  /**
+   * Check if command supports undo
+   * @returns {boolean}
+   */
+  isUndoable() {
+    return true;
+  }
+
+  /**
+   * Create undo command (DeleteTagCommand)
+   * @param {TagOperationResult} executionResult - Result from create operation
+   * @returns {TagCommandInterface}
+   */
+  createUndoCommand(executionResult) {
+    if (!executionResult.success || !executionResult.data) {
+      return null;
+    }
+
+    const DeleteTagCommand = require('./DeleteTagCommand');
+    return new DeleteTagCommand({
+      tagId: executionResult.data.id,
+      tagName: executionResult.data.name
+    });
+  }
+
+  /**
+   * Generate unique tag ID
+   * @private
+   * @returns {Promise<string>}
+   */
+  async _generateTagId() {
+    // Generate timestamp-based ID with random suffix for uniqueness
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    return `tag_${timestamp}_${random}`;
   }
 }
 ```
@@ -347,26 +678,126 @@ class SimpleTagManager {
 #### Version Management Chain
 ```javascript
 class VersionService {
+  constructor(database, stateManager) {
+    this.db = database;
+    this.stateManager = stateManager;
+    this.deletionChain = null;
+    this.initializeDeletionChain();
+  }
+
+  /**
+   * Initialize the Chain of Responsibility for version deletion
+   */
   initializeDeletionChain() {
+    // Create handler instances
     const validationHandler = new ValidationHandler(this.db, this.stateManager);
     const dependencyHandler = new DependencyHandler(this.db, this.stateManager);
     const deletionHandler = new DeletionHandler(this.db, this.stateManager);
 
-    // Chain setup
+    // Set up the chain
     validationHandler.setNext(dependencyHandler);
     dependencyHandler.setNext(deletionHandler);
 
     this.deletionChain = validationHandler;
   }
 
+  /**
+   * Delete a version using the Chain of Responsibility pattern
+   * @param {number} promptId - The ID of the prompt/version to delete
+   * @param {Object} options - Additional options for deletion
+   * @returns {Promise<Object>} Result object with success status and details
+   */
   async deleteVersion(promptId, options = {}) {
-    const context = {
-      promptId,
-      options,
-      metadata: {}
-    };
-    
-    return await this.deletionChain.handle(context);
+    try {
+      console.log(`Starting version deletion process for prompt ID: ${promptId}`);
+
+      // Create deletion context
+      const context = {
+        promptId,
+        options,
+        prompt: null,
+        parentId: null,
+        allVersions: [],
+        dependencies: [],
+        validationResults: {},
+        timestamp: new Date()
+      };
+
+      // Execute the chain
+      const result = await this.deletionChain.handle(context);
+
+      if (result.success) {
+        console.log(`Version deletion completed successfully for prompt ID: ${promptId}`);
+
+        // Notify state manager of successful deletion
+        await this.stateManager.notifyVersionDeleted(context);
+      } else {
+        console.warn(`Version deletion failed for prompt ID: ${promptId}`, result.error);
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Version deletion process failed:', error);
+      return {
+        success: false,
+        error: error.message,
+        stage: 'service_level'
+      };
+    }
+  }
+
+  /**
+   * Get version information without deletion
+   * @param {number} promptId - The ID of the prompt/version
+   * @returns {Promise<Object>} Version information
+   */
+  async getVersionInfo(promptId) {
+    try {
+      const prompt = await this.db.prompts.get(promptId);
+      if (!prompt) {
+        return { success: false, error: 'Prompt not found' };
+      }
+
+      const parentId = prompt.parentId || promptId;
+      const allVersions = await this.db.prompts
+        .where('parentId').equals(parentId)
+        .or('id').equals(parentId)
+        .toArray();
+
+      return {
+        success: true,
+        prompt,
+        parentId,
+        allVersions,
+        totalVersions: allVersions.length,
+        isLatestVersion: prompt.isLatest === 1
+      };
+    } catch (error) {
+      console.error('Failed to get version info:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get all dependencies for a version
+   * @param {number} promptId - The ID of the prompt/version
+   * @returns {Promise<Object>} Dependencies information
+   */
+  async getVersionDependencies(promptId) {
+    try {
+      const dependencyHandler = new DependencyHandler(this.db, this.stateManager);
+
+      const context = { promptId };
+      const dependencies = await dependencyHandler.checkDependencies(context);
+
+      return {
+        success: true,
+        dependencies
+      };
+    } catch (error) {
+      console.error('Failed to get version dependencies:', error);
+      return { success: false, error: error.message };
+    }
   }
 }
 ```
@@ -376,7 +807,7 @@ class VersionService {
 class ValidationHandler extends BaseHandler {
   async handle(context) {
     console.log(`Validating deletion for prompt ${context.promptId}`);
-    
+
     // Perform validation logic
     const prompt = await this.db.prompts.get(context.promptId);
     if (!prompt) {
@@ -593,7 +1024,7 @@ console.warn(`[${componentName}] Warning: ${warningMessage}`);
 ```javascript
 async function complexDatabaseOperation() {
   const transaction = db.transaction('rw', db.prompts, db.tags, db.promptTags);
-  
+
   try {
     await transaction.exec(async () => {
       // Multiple database operations
@@ -601,7 +1032,7 @@ async function complexDatabaseOperation() {
       const tag = await db.tags.add(tagData);
       await db.promptTags.add({ promptId: prompt.id, tagId: tag.id });
     });
-    
+
     console.log('Transaction completed successfully');
   } catch (error) {
     console.error('Transaction failed:', error);

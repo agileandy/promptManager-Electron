@@ -305,10 +305,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 ```javascript
 // Indexed queries for performance
 db.version(4).stores({
-  prompts: '++id,isLatest,parentId,version,title',
+  prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
   tags: '++id,name,fullPath,parentId,level',
   promptTags: '++id,promptId,tagId'
 });
+```
+
+**Note**: The `folders` table exists in the schema for legacy compatibility but is not actively used. Organization is handled through the hierarchical tag system using the `/` separator (e.g., `development/frontend/react`).
 
 // Optimized query patterns
 const latestPrompts = await db.prompts

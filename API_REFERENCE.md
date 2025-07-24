@@ -18,11 +18,12 @@ The application uses IndexedDB through Dexie.js with the following schema:
 // Database version 4 schema
 db.version(4).stores({
   prompts: '++id,isLatest,parentId,version,title,text,description,folderId,createdAt,lastUsedAt,timesUsed',
-  folders: '++id,name,parentId',
   tags: '++id,name,fullPath,parentId,level',
   promptTags: '++id,promptId,tagId'
 });
 ```
+
+**Note**: The `folders` table exists in the schema for legacy compatibility but is not actively used. Organization is handled through the hierarchical tag system using the `/` separator (e.g., `development/frontend/react`).
 
 ### Core Database Operations
 
@@ -69,7 +70,7 @@ async function searchPrompts(searchTerm) {
   return await db.prompts
     .where('isLatest')
     .equals(1)
-    .filter(prompt => 
+    .filter(prompt =>
       prompt.title.toLowerCase().includes(term) ||
       prompt.text.toLowerCase().includes(term)
     )
@@ -109,11 +110,11 @@ async function getPromptsByTag(tagId) {
     .where('tagId')
     .equals(tagId)
     .toArray();
-  
+
   const prompts = await Promise.all(
     promptIds.map(pt => db.prompts.get(pt.promptId))
   );
-  
+
   return prompts.filter(p => p && p.isLatest);
 }
 ```
@@ -142,7 +143,7 @@ async function getPromptTags(promptId) {
     .where('promptId')
     .equals(promptId)
     .toArray();
-  
+
   return await Promise.all(
     tagRelations.map(rel => db.tags.get(rel.tagId))
   );
@@ -248,15 +249,71 @@ if (saveResult.success) {
 }
 ```
 
+### Response Processing (Decorator Pattern)
+```javascript
+// Access decorator chain for response processing
+const { decoratorChainManager } = require('./src/ai/decorators/index.js');
+
+// Add custom decorator
+class CustomResponseDecorator extends BaseDecorator {
+  async process(response) {
+    // Add custom processing logic
+    response.processedBy = response.processedBy || [];
+    response.processedBy.push('custom-decorator');
+    return response;
+  }
+}
+
+// Register decorator
+decoratorChainManager.addDecorator(new CustomResponseDecorator());
+
+// Process AI response through the chain
+const processedResponse = await decoratorChainManager.process(rawResponse);
+```
+
 ## Tag Management API
 
 ### Tag Creation and Hierarchy
 ```javascript
-// Create hierarchical tag
-const createTagCommand = new CreateTagCommand(db, 'development/frontend/react');
-const result = await createTagCommand.execute();
+// Create hierarchical tag using Command Pattern
+const createTagCommand = new CreateTagCommand({
+  tagName: 'development/frontend/react',
+  tagColor: '#007bff',
+  description: 'React.js development prompts',
+  promptIds: [] // Optional initial prompt associations
+});
 
-// Alternative: Use tag manager directly
+// Execute with proper context
+const context = {
+  tagStateManager: new DatabaseTagStateManager(db),
+  eventPublisher: new SimpleEventPublisher(),
+  transactionManager: new DatabaseTransactionManager(db)
+};
+
+const result = await createTagCommand.executeWithContext(context);
+
+if (result.success) {
+  console.log('Tag created:', result.data);
+} else {
+  console.error('Tag creation failed:', result.error);
+}
+
+// Execute with proper context
+const context = {
+  tagStateManager: new DatabaseTagStateManager(db),
+  eventPublisher: new SimpleEventPublisher(),
+  transactionManager: new DatabaseTransactionManager(db)
+};
+
+const result = await createTagCommand.executeWithContext(context);
+
+if (result.success) {
+  console.log('Tag created:', result.data);
+} else {
+  console.error('Tag creation failed:', result.error);
+}
+
+// Alternative: Use tag manager directly for simpler operations
 const tag = await tagOnlyManager.createOrGetTag('development/backend/nodejs');
 console.log('Created tag:', tag);
 ```
@@ -298,17 +355,39 @@ function buildTagHierarchy(tags) {
 ### Tag Operations
 ```javascript
 // Rename tag (cascades to children)
-const renameCommand = new RenameTagCommand(db, tagId, 'new-name');
-await renameCommand.execute();
+const renameCommand = new RenameTagCommand({
+  tagId: tagId,
+  newName: 'new-name',
+  updateChildren: true
+});
+
+const renameResult = await renameCommand.executeWithContext(context);
+if (renameResult.success) {
+  console.log('Tag renamed successfully');
+}
 
 // Delete tag (with validation)
-const deleteCommand = new DeleteTagCommand(db, tagId);
-const deleteResult = await deleteCommand.execute();
+const deleteCommand = new DeleteTagCommand({
+  tagId: tagId,
+  forceDelete: false,
+  cascadeToChildren: true
+});
 
+const deleteResult = await deleteCommand.executeWithContext(context);
 if (deleteResult.success) {
   console.log('Tag deleted successfully');
 } else {
   console.error('Delete failed:', deleteResult.error);
+}
+
+// Command validation example
+const validation = createTagCommand.validate({
+  tagName: 'invalid//name',
+  tagColor: 'invalid-color'
+});
+
+if (!validation.isValid) {
+  console.error('Validation errors:', validation.messages);
 }
 
 // Get tag usage statistics
@@ -317,20 +396,20 @@ async function getTagStats(tagId) {
     .where('tagId')
     .equals(tagId)
     .count();
-  
+
   const childTags = await db.tags
     .where('parentId')
     .equals(tagId)
     .toArray();
-  
+
   const totalPrompts = await Promise.all(
-    childTags.map(child => 
+    childTags.map(child =>
       db.promptTags.where('tagId').equals(child.id).count()
     )
-  ).then(counts => 
+  ).then(counts =>
     counts.reduce((sum, count) => sum + count, promptCount)
   );
-  
+
   return {
     directPrompts: promptCount,
     totalPrompts: totalPrompts,
@@ -346,10 +425,10 @@ async function getTagStats(tagId) {
 // Create new version of existing prompt
 async function createPromptVersion(originalPromptId, changes) {
   const original = await db.prompts.get(originalPromptId);
-  
+
   // Mark original as not latest
   await db.prompts.update(originalPromptId, { isLatest: false });
-  
+
   // Create new version
   const newVersion = await db.prompts.add({
     ...original,
@@ -360,7 +439,7 @@ async function createPromptVersion(originalPromptId, changes) {
     isLatest: true,
     createdAt: new Date()
   });
-  
+
   return newVersion;
 }
 
@@ -368,7 +447,7 @@ async function createPromptVersion(originalPromptId, changes) {
 async function getVersionHistory(promptId) {
   const prompt = await db.prompts.get(promptId);
   const parentId = prompt.parentId || promptId;
-  
+
   return await db.prompts
     .where('parentId')
     .equals(parentId)
@@ -382,13 +461,13 @@ async function getVersionHistory(promptId) {
 async function revertToVersion(versionId) {
   const targetVersion = await db.prompts.get(versionId);
   const parentId = targetVersion.parentId || versionId;
-  
+
   // Mark all versions as not latest
   await db.prompts
     .where('parentId')
     .equals(parentId)
     .modify({ isLatest: false });
-  
+
   // Mark target version as latest
   await db.prompts.update(versionId, { isLatest: true });
 }
@@ -396,17 +475,44 @@ async function revertToVersion(versionId) {
 
 ### Version Deletion (Chain of Responsibility)
 ```javascript
-// Delete version using the service
+// Delete version using the Chain of Responsibility pattern
 const versionService = new VersionService(db, versionStateManager);
 const result = await versionService.deleteVersion(promptId, {
   force: false,
-  cascade: true
+  cascade: true,
+  skipValidation: false
 });
 
+// Get version information
+const versionInfo = await versionService.getVersionInfo(promptId);
+if (versionInfo.success) {
+  console.log('Version details:', versionInfo);
+}
+
+// Check dependencies before deletion
+const dependencies = await versionService.getVersionDependencies(promptId);
+if (dependencies.success) {
+  console.log('Dependencies found:', dependencies.dependencies);
+}
+
 if (result.success) {
-  console.log('Version deleted:', result.metadata);
+  console.log('Version deleted successfully');
+  console.log('Deletion metadata:', result.metadata);
 } else {
   console.error('Deletion failed:', result.error);
+  console.log('Failure stage:', result.stage);
+}
+
+// Get version information
+const versionInfo = await versionService.getVersionInfo(promptId);
+if (versionInfo.success) {
+  console.log('Version details:', versionInfo);
+}
+
+// Check dependencies before deletion
+const dependencies = await versionService.getVersionDependencies(promptId);
+if (dependencies.success) {
+  console.log('Dependencies found:', dependencies.dependencies);
 }
 ```
 
@@ -440,10 +546,10 @@ The renderer process communicates with main through the preload script:
 const electronAPI = {
   // Data directory access
   getDataDir: () => ipcRenderer.invoke('get-data-dir'),
-  
+
   // Database viewer
   openDatabaseViewer: () => ipcRenderer.invoke('open-database-viewer'),
-  
+
   // AI services
   ai: {
     initialize: () => ipcRenderer.invoke('ai-initialize'),
@@ -601,7 +707,7 @@ function initializeEventHandlers() {
     e.preventDefault();
     const formData = new FormData(e.target);
     const promptData = Object.fromEntries(formData);
-    
+
     try {
       await savePrompt(promptData);
       eventDispatcher.emit('prompt-saved', promptData);
@@ -639,6 +745,83 @@ function debounce(func, wait) {
     timeout = setTimeout(later, wait);
   };
 }
+```
+
+### UI Components API
+
+#### ReadOnlyViewerModal
+```javascript
+// Show read-only modal with prompt data
+function showReadOnlyModal(promptData) {
+  // Set prompt title
+  document.getElementById('viewer-prompt-title').textContent = promptData.title;
+
+  // Set version badge
+  document.getElementById('viewer-version-badge').textContent = `Version ${promptData.version}`;
+
+  // Set description
+  document.getElementById('viewer-prompt-description').textContent = promptData.description;
+
+  // Set prompt text
+  document.getElementById('viewer-prompt-text').textContent = promptData.text;
+
+  // Clear and populate tags
+  const tagsContainer = document.getElementById('viewer-prompt-tags');
+  tagsContainer.innerHTML = '';
+  promptData.tags.forEach(tag => {
+    const tagElement = document.createElement('span');
+    tagElement.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+    tagElement.textContent = tag.name;
+    tagsContainer.appendChild(tagElement);
+  });
+
+  // Set metadata
+  document.getElementById('viewer-created-at').textContent = new Date(promptData.createdAt).toLocaleString();
+  document.getElementById('viewer-last-used').textContent = promptData.lastUsedAt ? new Date(promptData.lastUsedAt).toLocaleString() : 'Never';
+  document.getElementById('viewer-times-used').textContent = promptData.timesUsed;
+  document.getElementById('viewer-parent-id').textContent = promptData.parentId || 'None';
+
+  // Show modal
+  document.getElementById('read-only-viewer-modal').classList.remove('hidden');
+}
+
+// Close the read-only modal
+function closeReadOnlyModal() {
+  document.getElementById('read-only-viewer-modal').classList.add('hidden');
+}
+
+// Copy prompt text to clipboard
+document.getElementById('viewer-copy-btn').addEventListener('click', async () => {
+  const promptText = document.getElementById('viewer-prompt-text').textContent;
+  await navigator.clipboard.writeText(promptText);
+
+  // Update button text temporarily
+  const button = document.getElementById('viewer-copy-btn');
+  const originalText = button.textContent;
+  button.textContent = 'Copied!';
+  setTimeout(() => {
+    button.textContent = originalText;
+  }, 2000);
+});
+
+// Navigate between versions
+document.getElementById('viewer-prev-version-btn').addEventListener('click', () => {
+  // Logic to navigate to previous version
+});
+
+document.getElementById('viewer-next-version-btn').addEventListener('click', () => {
+  // Logic to navigate to next version
+});
+
+// Close modal with close button
+document.getElementById('viewer-close-btn').addEventListener('click', closeReadOnlyModal);
+
+// Close modal with escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeReadOnlyModal();
+  }
+});
 ```
 
 This API reference provides comprehensive documentation for all the major APIs and interfaces in the AI Prompt Manager application, making it easier for developers to understand and extend the codebase.

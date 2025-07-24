@@ -63,6 +63,14 @@ The application uses hierarchical tags with `/` separators:
 
 Tags automatically create parent hierarchies and show usage counts.
 
+#### 4. View Prompt Details
+
+Use the read-only prompt viewer to examine prompt details:
+- Click on any prompt in the list to open the read-only viewer
+- View the prompt's title, description, content, and tags
+- Copy the prompt text to clipboard with the "Copy" button
+- Close the viewer with the "Close" button or by pressing Escape
+
 ### Core Features
 
 #### Prompt Management

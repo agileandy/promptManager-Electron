@@ -8,7 +8,7 @@ This document provides a comprehensive overview of all available documentation f
 - **[README.md](README.md)** - Project overview, features, and basic setup
 - **[QUICK_START.md](QUICK_START.md)** - Step-by-step installation and usage guide
 
-### 📖 Understanding the Code  
+### 📖 Understanding the Code
 - **[CODE_EXPLANATION.md](CODE_EXPLANATION.md)** - Complete codebase explanation with examples
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture, design patterns, and data flow
 - **[API_REFERENCE.md](API_REFERENCE.md)** - Detailed API documentation for all modules
@@ -16,17 +16,17 @@ This document provides a comprehensive overview of all available documentation f
 ## Documentation Overview
 
 ### 1. README.md
-**Purpose**: Project introduction and feature overview  
-**Audience**: All users - developers, contributors, and end users  
+**Purpose**: Project introduction and feature overview
+**Audience**: All users - developers, contributors, and end users
 **Contains**:
 - Feature descriptions with screenshots
 - Basic installation instructions
 - Usage examples
 - Changelog and version history
 
-### 2. QUICK_START.md  
-**Purpose**: Get users up and running quickly  
-**Audience**: New users and developers  
+### 2. QUICK_START.md
+**Purpose**: Get users up and running quickly
+**Audience**: New users and developers
 **Contains**:
 - Prerequisites and installation steps
 - First-time setup instructions
@@ -34,19 +34,20 @@ This document provides a comprehensive overview of all available documentation f
 - Common workflows and troubleshooting
 
 ### 3. CODE_EXPLANATION.md
-**Purpose**: Comprehensive technical documentation  
-**Audience**: Developers and contributors  
+**Purpose**: Comprehensive technical documentation
+**Audience**: Developers and contributors
 **Contains**:
 - Application architecture overview
 - Core component explanations
 - Database design and relationships
 - Key systems (AI, tags, version control)
 - Design patterns used throughout
+- UI component documentation (including ReadOnlyViewerModal)
 - Development setup and coding conventions
 
 ### 4. ARCHITECTURE.md
-**Purpose**: Deep dive into system architecture  
-**Audience**: Senior developers and architects  
+**Purpose**: Deep dive into system architecture
+**Audience**: Senior developers and architects
 **Contains**:
 - Multi-layered architecture diagrams
 - Component interaction patterns
@@ -56,8 +57,8 @@ This document provides a comprehensive overview of all available documentation f
 - Scalability patterns
 
 ### 5. API_REFERENCE.md
-**Purpose**: Complete API documentation  
-**Audience**: Developers extending or integrating with the application  
+**Purpose**: Complete API documentation
+**Audience**: Developers extending or integrating with the application
 **Contains**:
 - Database API with schema and operations
 - AI Service API with examples
@@ -124,7 +125,7 @@ External Services (AI APIs, File System)
 ```
 src/app/
 ├── main.js              # Electron main process
-├── preload.js           # Secure IPC bridge  
+├── preload.js           # Secure IPC bridge
 ├── index.html           # Main UI
 ├── src/
 │   ├── renderer.js      # Application coordinator

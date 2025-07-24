@@ -15,6 +15,7 @@ A desktop application built with Electron for managing and organizing AI prompts
 - **Import/Export** - Backup and share your prompts as JSON files
 - **Dark/Light theme** toggle for comfortable viewing
 - **Usage tracking** - See how often you use each prompt
+- **Read-only prompt viewer** - View prompt details in a clean, distraction-free modal
 
 ### AI-Powered Features
 - **AI Prompt Generation** - Generate new prompts based on simple descriptions
