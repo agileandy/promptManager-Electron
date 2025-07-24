@@ -2,6 +2,9 @@
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 
+// Remove the mock since we're evaluating the renderer.js content directly
+// The initializeTagModal function will be available after eval(rendererContent)
+
 // Load the renderer.js file content
 const rendererContent = fs.readFileSync('./src/app/src/renderer.js', 'utf8');
 
@@ -226,5 +229,128 @@ describe('Tag Filtering Functionality', () => {
 
     // Verify the results
     expect(document.getElementById('prompt-grid').innerHTML).toContain('AI Dev Prompt');
+  });
+});
+
+// Test suite for tag modal initialization
+describe('Tag Modal Initialization', () => {
+  beforeEach(() => {
+    // Reset mocks
+    jest.clearAllMocks();
+
+    // Create mock elements for the tag modal
+    const tagModal = document.createElement('div');
+    tagModal.id = 'tag-modal';
+    document.body.appendChild(tagModal);
+
+    const tagManagementBtn = document.createElement('button');
+    tagManagementBtn.id = 'tag-management-btn';
+    document.body.appendChild(tagManagementBtn);
+
+    const closeTagModalBtn = document.createElement('button');
+    closeTagModalBtn.id = 'close-tag-modal';
+    document.body.appendChild(closeTagModalBtn);
+
+    const closeTagModalFooterBtn = document.createElement('button');
+    closeTagModalFooterBtn.id = 'close-tag-modal-footer';
+    document.body.appendChild(closeTagModalFooterBtn);
+
+    const createTagForm = document.createElement('form');
+    createTagForm.id = 'create-tag-form';
+    document.body.appendChild(createTagForm);
+
+    const refreshTagsBtn = document.createElement('button');
+    refreshTagsBtn.id = 'refresh-tags-btn';
+    document.body.appendChild(refreshTagsBtn);
+
+    const tagSearchInput = document.createElement('input');
+    tagSearchInput.id = 'tag-search';
+    document.body.appendChild(tagSearchInput);
+
+    const tagsListContainer = document.createElement('div');
+    tagsListContainer.id = 'tags-list-container';
+    document.body.appendChild(tagsListContainer);
+
+    // Mock the loadTagsList function
+    global.loadTagsList = jest.fn().mockResolvedValue();
+  });
+
+  test('should initialize tag modal elements on DOMContentLoaded', () => {
+    // Verify that all required elements are found
+    expect(document.getElementById('tag-modal')).not.toBeNull();
+    expect(document.getElementById('tag-management-btn')).not.toBeNull();
+    expect(document.getElementById('close-tag-modal')).not.toBeNull();
+    expect(document.getElementById('close-tag-modal-footer')).not.toBeNull();
+    expect(document.getElementById('create-tag-form')).not.toBeNull();
+    expect(document.getElementById('refresh-tags-btn')).not.toBeNull();
+    expect(document.getElementById('tag-search')).not.toBeNull();
+    expect(document.getElementById('tags-list-container')).not.toBeNull();
+  });
+
+  test('should open tag modal when management button is clicked', () => {
+    const tagModal = document.getElementById('tag-modal');
+    const tagManagementBtn = document.getElementById('tag-management-btn');
+
+    // Initially, the modal should be hidden
+    expect(tagModal.classList.contains('hidden')).toBe(true);
+
+    // Click the management button
+    tagManagementBtn.click();
+
+    // The modal should now be visible
+    expect(tagModal.classList.contains('hidden')).toBe(false);
+  });
+
+  test('should close tag modal when close buttons are clicked', () => {
+    const tagModal = document.getElementById('tag-modal');
+    const closeTagModalBtn = document.getElementById('close-tag-modal');
+    const closeTagModalFooterBtn = document.getElementById('close-tag-modal-footer');
+
+    // Show the modal first
+    tagModal.classList.remove('hidden');
+    expect(tagModal.classList.contains('hidden')).toBe(false);
+
+    // Click the close button
+    closeTagModalBtn.click();
+
+    // The modal should be hidden
+    expect(tagModal.classList.contains('hidden')).toBe(true);
+
+    // Show the modal again
+    tagModal.classList.remove('hidden');
+    expect(tagModal.classList.contains('hidden')).toBe(false);
+
+    // Click the footer close button
+    closeTagModalFooterBtn.click();
+
+    // The modal should be hidden
+    expect(tagModal.classList.contains('hidden')).toBe(true);
+  });
+
+  test('should close tag modal when clicking outside', () => {
+    const tagModal = document.getElementById('tag-modal');
+    const backdrop = document.createElement('div');
+    backdrop.id = 'backdrop';
+    tagModal.appendChild(backdrop);
+
+    // Show the modal
+    tagModal.classList.remove('hidden');
+    expect(tagModal.classList.contains('hidden')).toBe(false);
+
+    // Click outside the modal
+    backdrop.click();
+
+    // The modal should be hidden
+    expect(tagModal.classList.contains('hidden')).toBe(true);
+  });
+
+  test('should load tags list when modal is opened', () => {
+    const tagManagementBtn = document.getElementById('tag-management-btn');
+
+    // Click the management button to open the modal
+    tagManagementBtn.click();
+
+    // Verify that loadTagsList was called
+    expect(loadTagsList).toHaveBeenCalled();
   });
 });

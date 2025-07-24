@@ -2605,8 +2605,6 @@ function initializeTagModal() {
 
 // Initialize tag modal after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait for the main initialization to complete
-    setTimeout(() => {
-        initializeTagModal();
-    }, 100);
+    // Initialize the tag modal immediately after DOM is loaded
+    initializeTagModal();
 });
