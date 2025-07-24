@@ -44,9 +44,50 @@ A desktop application built with Electron for managing and organizing AI prompts
 
 ## Installation
 
-1. Clone this repository
-2. Install dependencies: `npm install`
-3. Run the application: `npm start`
+### For End Users (Pre-built Releases)
+Download the latest release for your platform:
+- **Windows**: Download `AI Prompt Manager Setup 1.0.0.exe` (installer) or `AI Prompt Manager 1.0.0.exe` (portable)
+- **macOS**: Download `AI Prompt Manager.app` or DMG installer
+- **Linux**: Download `AI Prompt Manager-1.0.0.AppImage` (universal) or `promptmanager-electron_1.0.0_amd64.deb` (Debian/Ubuntu)
+
+### For Developers (Build from Source)
+1. **Clone this repository**:
+   ```bash
+   git clone https://github.com/agileandy/promptManager-Electron.git
+   cd promptManager-Electron
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Run in development mode**:
+   ```bash
+   npm start
+   # or for development with auto-reload
+   npm run dev
+   ```
+
+4. **Build for distribution**:
+   ```bash
+   # Build for current platform
+   npm run build
+   
+   # Build for specific platforms
+   npm run build:win    # Windows installer + portable
+   npm run build:mac    # macOS DMG + ZIP
+   npm run build:linux  # Linux AppImage + DEB + RPM
+   
+   # Test build without packaging
+   npm run pack
+   ```
+
+### System Requirements
+- **Node.js** 14+ and npm 6+
+- **Operating System**: Windows 10+, macOS 10.14+, or Linux (Ubuntu 18.04+)
+- **Memory**: 4GB RAM minimum, 8GB recommended
+- **Storage**: 1GB free space for installation
 
 **📚 New to the project?** Check out our comprehensive documentation:
 - **[Quick Start Guide](QUICK_START.md)** - Get up and running in minutes
