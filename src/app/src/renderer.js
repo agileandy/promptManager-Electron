@@ -17,7 +17,7 @@ let versionService = null;
 let versionStateManager = null;
 
 // Tag path matcher utility
-const { getMatchingTags } = require('./tags/TagPathMatcher');
+import { getMatchingTags } from './tags/TagPathMatcher.js';
 
 // Initialize database with common data directory
 async function initializeDatabase() {

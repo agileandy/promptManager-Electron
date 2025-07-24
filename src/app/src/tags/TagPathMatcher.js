@@ -4,7 +4,7 @@
  * @param {string} tagPath - The tag path to match
  * @returns {Array} - Array of matching tags
  */
-function getMatchingTags(allTags, tagPath) {
+export function getMatchingTags(allTags, tagPath) {
   return allTags.filter(tag => {
     // Exact match or is a child tag (starts with the path + '/' to avoid partial matches)
     return tag.fullPath === tagPath ||
@@ -13,5 +13,3 @@ function getMatchingTags(allTags, tagPath) {
             (tagPath + '/').length <= tag.fullPath.length);
   });
 }
-
-module.exports = { getMatchingTags };

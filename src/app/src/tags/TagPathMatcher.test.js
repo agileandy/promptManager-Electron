@@ -1,4 +1,4 @@
-const { getMatchingTags } = require('./TagPathMatcher');
+import { getMatchingTags } from './TagPathMatcher.js';
 
 describe('TagPathMatcher', () => {
   let allTags;
