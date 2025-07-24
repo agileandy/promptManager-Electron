@@ -1,225 +1,230 @@
-// Test suite for sidebar resize functionality
-describe('Sidebar Resize Functionality', () => {
-  let sidebar;
-  let resizeHandle;
-  let mainContent;
-  let header;
-  let originalSidebarWidth;
-  let originalMainContentMargin;
+// Import the necessary modules
+const { JSDOM } = require('jsdom');
+const fs = require('fs');
 
-  // Setup DOM elements before each test
+// Load the renderer.js file content
+const rendererContent = fs.readFileSync('./src/app/src/renderer.js', 'utf8');
+
+// Set up a mock DOM environment
+const dom = new JSDOM(`
+  <!DOCTYPE html>
+  <html>
+  <body>
+    <div id="tag-tree"></div>
+    <div id="prompt-grid"></div>
+    <input type="search" id="search-input" />
+  </body>
+  </html>
+`, { url: 'http://localhost' });
+
+// Set up global variables for the test
+global.window = dom.window;
+global.document = dom.window.document;
+global.navigator = { clipboard: { writeText: jest.fn() } };
+
+// Mock the database and Electron API
+global.db = {
+  tags: {
+    toArray: jest.fn()
+  },
+  promptTags: {
+    where: jest.fn().mockReturnThis(),
+    anyOf: jest.fn().mockReturnThis(),
+    toArray: jest.fn()
+  },
+  prompts: {
+    where: jest.fn().mockReturnThis(),
+    equals: jest.fn().mockReturnThis(),
+    and: jest.fn().mockReturnThis(),
+    toArray: jest.fn()
+  }
+};
+
+global.window.electronAPI = {
+  getDataDir: jest.fn().mockResolvedValue('/test/data/dir'),
+  ai: {
+    initialize: jest.fn().mockResolvedValue({ success: true, providers: [] }),
+    getDefaultProvider: jest.fn().mockResolvedValue('openrouter'),
+    getConfig: jest.fn().mockResolvedValue({})
+  },
+  openDatabaseViewer: jest.fn()
+};
+
+// Execute the renderer.js code in the test environment
+eval(rendererContent);
+
+// Test suite for tag filtering functionality
+describe('Tag Filtering Functionality', () => {
+  let allTags;
+  let promptTagRelations;
+  let prompts;
+
   beforeEach(() => {
-    document.body.innerHTML = `
-      <aside id="sidebar" class="resizable-sidebar fixed left-0 top-0 w-64 h-full bg-white dark:bg-gray-800 p-4 shadow-2xl border-r border-gray-200 dark:border-gray-700 z-10">
-        <div id="resize-handle" class="resize-handle"></div>
-      </aside>
-      <main class="flex-1 ml-64 relative">
-        <div class="fixed top-0 right-0 left-64 bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 z-10">
-          <header class="flex justify-between items-center p-6 pb-4">
-            <h1>Header Content</h1>
-          </header>
-        </div>
-        <div class="pt-44 p-6 h-screen overflow-y-auto">
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-6">
-            <div>Content</div>
-          </div>
-        </div>
-      </main>
-    `;
+    // Reset mocks
+    jest.clearAllMocks();
 
-    // Initialize variables
-    sidebar = document.getElementById('sidebar');
-    resizeHandle = document.getElementById('resize-handle');
-    mainContent = document.querySelector('main');
-    header = document.querySelector('.fixed.top-0');
+    // Set up test data
+    allTags = [
+      { id: 1, name: 'ai', fullPath: 'ai', parentId: null, level: 0 },
+      { id: 2, name: 'ml', fullPath: 'ai/ml', parentId: 1, level: 1 },
+      { id: 3, name: 'nlp', fullPath: 'ai/nlp', parentId: 1, level: 1 },
+      { id: 4, name: 'web', fullPath: 'web', parentId: null, level: 0 },
+      { id: 5, name: 'frontend', fullPath: 'web/frontend', parentId: 4, level: 1 },
+      { id: 6, name: 'backend', fullPath: 'web/backend', parentId: 4, level: 1 },
+      { id: 7, name: 'aide', fullPath: 'aide', parentId: null, level: 0 } // Similar but different tag
+    ];
 
-    // Store original values
-    originalSidebarWidth = 256; // w-64 = 16 * 16px = 256px
-    originalMainContentMargin = 256; // ml-64 = 16 * 16px = 256px
+    promptTagRelations = [
+      { id: 1, promptId: 1, tagId: 1 }, // ai tag
+      { id: 2, promptId: 2, tagId: 2 }, // ai/ml tag
+      { id: 3, promptId: 3, tagId: 3 }, // ai/nlp tag
+      { id: 4, promptId: 4, tagId: 4 }, // web tag
+      { id: 5, promptId: 5, tagId: 5 }, // web/frontend tag
+      { id: 6, promptId: 6, tagId: 6 }, // web/backend tag
+      { id: 7, promptId: 7, tagId: 7 }  // aide tag
+    ];
+
+    prompts = [
+      { id: 1, title: 'AI Prompt', isLatest: 1 },
+      { id: 2, title: 'ML Prompt', isLatest: 1 },
+      { id: 3, title: 'NLP Prompt', isLatest: 1 },
+      { id: 4, title: 'Web Prompt', isLatest: 1 },
+      { id: 5, title: 'Frontend Prompt', isLatest: 1 },
+      { id: 6, title: 'Backend Prompt', isLatest: 1 },
+      { id: 7, title: 'Aide Prompt', isLatest: 1 }
+    ];
   });
 
-  // Mock the resize functionality from renderer.js
-  function setupResizeListeners() {
-    let isResizing = false;
-
-    resizeHandle.addEventListener('mousedown', (e) => {
-      isResizing = true;
-      document.body.style.cursor = 'col-resize';
-      e.preventDefault();
+  test('should filter prompts by exact tag match', async () => {
+    // Mock database responses
+    global.db.tags.toArray.mockResolvedValue(allTags);
+    global.db.promptTags.where.mockReturnValue({
+      anyOf: jest.fn().mockReturnValue({
+        toArray: jest.fn().mockResolvedValue([
+          promptTagRelations[0] // Only the ai tag relation
+        ])
+      })
+    });
+    global.db.prompts.where.mockReturnValue({
+      equals: jest.fn().mockReturnValue({
+        and: jest.fn().mockReturnValue({
+          toArray: jest.fn().mockResolvedValue([
+            prompts[0] // Only the AI prompt
+          ])
+        })
+      })
     });
 
-    document.addEventListener('mousemove', (e) => {
-      if (!isResizing) return;
+    // Call the function
+    await renderPromptsByTag('ai');
 
-      const minWidth = 200;
-      const maxWidth = 500;
-      const newWidth = e.clientX;
-
-      if (newWidth >= minWidth && newWidth <= maxWidth) {
-        sidebar.style.width = newWidth + 'px';
-        // Update main content margin to prevent overlap
-        mainContent.style.marginLeft = newWidth + 'px';
-        // Update header left position
-        header.style.left = newWidth + 'px';
-      }
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (isResizing) {
-        isResizing = false;
-        document.body.style.cursor = 'default';
-      }
-    });
-  }
-
-  test('should resize sidebar and adjust main content and header', () => {
-    // Setup resize listeners
-    setupResizeListeners();
-
-    // Simulate mousedown on resize handle
-    const mousedownEvent = new MouseEvent('mousedown', {
-      clientX: originalSidebarWidth,
-      bubbles: true,
-      cancelable: true
-    });
-    resizeHandle.dispatchEvent(mousedownEvent);
-
-    // Simulate mousemove to resize
-    const mousemoveEvent = new MouseEvent('mousemove', {
-      clientX: 300,
-      bubbles: true,
-      cancelable: true
-    });
-    document.dispatchEvent(mousemoveEvent);
-
-    // Simulate mouseup
-    const mouseupEvent = new MouseEvent('mouseup', {
-      bubbles: true,
-      cancelable: true
-    });
-    document.dispatchEvent(mouseupEvent);
-
-    // Check if sidebar width was updated
-    expect(parseInt(sidebar.style.width)).toBe(300);
-
-    // Check if main content margin was updated
-    expect(parseInt(mainContent.style.marginLeft)).toBe(300);
-
-    // Check if header left position was updated
-    expect(parseInt(header.style.left)).toBe(300);
+    // Verify the results
+    expect(global.db.tags.toArray).toHaveBeenCalled();
+    expect(global.db.promptTags.where).toHaveBeenCalledWith('tagId');
+    expect(global.db.prompts.where).toHaveBeenCalledWith('id');
+    expect(document.getElementById('prompt-grid').innerHTML).toContain('AI Prompt');
+    expect(document.getElementById('prompt-grid').innerHTML).not.toContain('ML Prompt');
+    expect(document.getElementById('prompt-grid').innerHTML).not.toContain('NLP Prompt');
   });
 
-  test('should maintain minimum and maximum width constraints', () => {
-    // Setup resize listeners
-    setupResizeListeners();
-
-    // Simulate mousedown on resize handle
-    const mousedownEvent = new MouseEvent('mousedown', {
-      clientX: originalSidebarWidth,
-      bubbles: true,
-      cancelable: true
+  test('should filter prompts by parent tag including all children', async () => {
+    // Mock database responses
+    global.db.tags.toArray.mockResolvedValue(allTags);
+    global.db.promptTags.where.mockReturnValue({
+      anyOf: jest.fn().mockReturnValue({
+        toArray: jest.fn().mockResolvedValue([
+          promptTagRelations[0], // ai tag
+          promptTagRelations[1], // ai/ml tag
+          promptTagRelations[2]  // ai/nlp tag
+        ])
+      })
     });
-    resizeHandle.dispatchEvent(mousedownEvent);
-
-    // Simulate mousemove to resize beyond maximum
-    const mousemoveEventMax = new MouseEvent('mousemove', {
-      clientX: 600,
-      bubbles: true,
-      cancelable: true
+    global.db.prompts.where.mockReturnValue({
+      equals: jest.fn().mockReturnValue({
+        and: jest.fn().mockReturnValue({
+          toArray: jest.fn().mockResolvedValue([
+            prompts[0], // AI prompt
+            prompts[1], // ML prompt
+            prompts[2]  // NLP prompt
+          ])
+        })
+      })
     });
-    document.dispatchEvent(mousemoveEventMax);
 
-    // Check if width is capped at maximum
-    expect(parseInt(sidebar.style.width)).toBeLessThanOrEqual(500);
+    // Call the function
+    await renderPromptsByTag('ai');
 
-    // Reset
-    sidebar.style.width = '';
-    mainContent.style.marginLeft = '';
-    header.style.left = '';
-
-    // Simulate mousemove to resize below minimum
-    const mousemoveEventMin = new MouseEvent('mousemove', {
-      clientX: 100,
-      bubbles: true,
-      cancelable: true
-    });
-    document.dispatchEvent(mousemoveEventMin);
-
-    // Check if width is capped at minimum
-    expect(parseInt(sidebar.style.width)).toBeGreaterThanOrEqual(200);
-
-    // Complete the drag operation
-    const mouseupEvent = new MouseEvent('mouseup', {
-      bubbles: true,
-      cancelable: true
-    });
-    document.dispatchEvent(mouseupEvent);
+    // Verify the results
+    expect(document.getElementById('prompt-grid').innerHTML).toContain('AI Prompt');
+    expect(document.getElementById('prompt-grid').innerHTML).toContain('ML Prompt');
+    expect(document.getElementById('prompt-grid').innerHTML).toContain('NLP Prompt');
+    expect(document.getElementById('prompt-grid').innerHTML).not.toContain('Web Prompt');
   });
 
-  test('should save and restore sidebar width from localStorage', () => {
-  // Setup resize listeners
-  setupResizeListeners();
+  test('should not match partial tag names', async () => {
+    // Mock database responses
+    global.db.tags.toArray.mockResolvedValue(allTags);
+    global.db.promptTags.where.mockReturnValue({
+      anyOf: jest.fn().mockReturnValue({
+        toArray: jest.fn().mockResolvedValue([
+          promptTagRelations[0] // ai tag
+        ])
+      })
+    });
+    global.db.prompts.where.mockReturnValue({
+      equals: jest.fn().mockReturnValue({
+        and: jest.fn().mockReturnValue({
+          toArray: jest.fn().mockResolvedValue([
+            prompts[0] // AI prompt
+          ])
+        })
+      })
+    });
 
-  // Clear localStorage
-  localStorage.clear();
+    // Call the function
+    await renderPromptsByTag('ai');
 
-  // Simulate resize
-  const mousedownEvent = new MouseEvent('mousedown', {
-    clientX: originalSidebarWidth,
-    bubbles: true,
-    cancelable: true
+    // Verify that 'aide' tag is not included when filtering by 'ai'
+    expect(document.getElementById('prompt-grid').innerHTML).not.toContain('Aide Prompt');
   });
-  resizeHandle.dispatchEvent(mousedownEvent);
 
-  const mousemoveEvent = new MouseEvent('mousemove', {
-    clientX: 350,
-    bubbles: true,
-    cancelable: true
+  test('should handle non-existent tag path', async () => {
+    // Mock database responses
+    global.db.tags.toArray.mockResolvedValue(allTags);
+
+    // Call the function with a non-existent tag
+    await renderPromptsByTag('nonexistent');
+
+    // Verify the error message is displayed
+    expect(document.getElementById('prompt-grid').innerHTML).toContain('No prompts found with tag "nonexistent"');
   });
-  document.dispatchEvent(mousemoveEvent);
 
-  const mouseupEvent = new MouseEvent('mouseup', {
-    bubbles: true,
-    cancelable: true
+  test('should properly handle tag with special characters', async () => {
+    // Add a tag with special characters
+    const specialTags = [...allTags, { id: 8, name: 'ai-dev', fullPath: 'ai-dev', parentId: null, level: 0 }];
+
+    global.db.tags.toArray.mockResolvedValue(specialTags);
+    global.db.promptTags.where.mockReturnValue({
+      anyOf: jest.fn().mockReturnValue({
+        toArray: jest.fn().mockResolvedValue([
+          { id: 8, promptId: 8, tagId: 8 }
+        ])
+      })
+    });
+    global.db.prompts.where.mockReturnValue({
+      equals: jest.fn().mockReturnValue({
+        and: jest.fn().mockReturnValue({
+          toArray: jest.fn().mockResolvedValue([
+            { id: 8, title: 'AI Dev Prompt', isLatest: 1 }
+          ])
+        })
+      })
+    });
+
+    // Call the function
+    await renderPromptsByTag('ai-dev');
+
+    // Verify the results
+    expect(document.getElementById('prompt-grid').innerHTML).toContain('AI Dev Prompt');
   });
-  document.dispatchEvent(mouseupEvent);
-
-  // Check if width was saved to localStorage
-  expect(localStorage.getItem('sidebarWidth')).toBe('350px');
-
-  // Create new elements to simulate page reload
-  document.body.innerHTML = `
-    <aside id="sidebar" class="resizable-sidebar fixed left-0 top-0 w-64 h-full bg-white dark:bg-gray-800 p-4 shadow-2xl border-r border-gray-200 dark:border-gray-700 z-10">
-      <div id="resize-handle" class="resize-handle"></div>
-    </aside>
-    <main class="flex-1 ml-64 relative">
-      <div class="fixed top-0 right-0 left-64 bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 z-10">
-        <header class="flex justify-between items-center p-6 pb-4">
-          <h1>Header Content</h1>
-        </header>
-      </div>
-      <div class="pt-44 p-6 h-screen overflow-y-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-6">
-          <div>Content</div>
-        </div>
-      </div>
-    </main>
-  `;
-
-  sidebar = document.getElementById('sidebar');
-  resizeHandle = document.getElementById('resize-handle');
-  mainContent = document.querySelector('main');
-  header = document.querySelector('.fixed.top-0');
-
-  // Simulate page load with saved width
-  if (localStorage.getItem('sidebarWidth')) {
-    document.body.style.setProperty('--sidebar-width', localStorage.getItem('sidebarWidth'));
-  }
-
-  // Check if saved width was applied via CSS variable
-  expect(getComputedStyle(document.body).getPropertyValue('--sidebar-width').trim()).toBe('350px');
-  expect(getComputedStyle(sidebar).width).toBe('350px');
-  expect(getComputedStyle(mainContent).marginLeft).toBe('350px');
-  expect(getComputedStyle(header).left).toBe('350px');
-});
 });

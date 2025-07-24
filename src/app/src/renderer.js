@@ -16,6 +16,9 @@ let simpleVersionManager = null;
 let versionService = null;
 let versionStateManager = null;
 
+// Tag path matcher utility
+const { getMatchingTags } = require('./tags/TagPathMatcher');
+
 // Initialize database with common data directory
 async function initializeDatabase() {
     try {
@@ -1314,15 +1317,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Get all tags that match this path pattern (exact match or children)
         const allTags = await db.tags.toArray();
-        const matchingTags = allTags.filter(tag => {
-            // Exact match or starts with the path followed by a slash
-            return tag.fullPath === tagPath || tag.fullPath.startsWith(tagPath + '/');
-        });
+        const matchingTags = getMatchingTags(allTags, tagPath);
 
         console.log('Matching tags:', matchingTags.map(t => t.fullPath));
 
         if (matchingTags.length === 0) {
-            console.error('No tags found starting with:', tagPath);
+            console.error('No tags found for path:', tagPath);
             promptGrid.innerHTML = `<p class="text-gray-500">No prompts found with tag "${tagPath}".</p>`;
             return;
         }
