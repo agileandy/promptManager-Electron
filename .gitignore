@@ -112,7 +112,8 @@ dist
 
 # Electron-specific
 dist/
-build/
+build/icon.*
+!build/README.md
 out/
 release/
 
